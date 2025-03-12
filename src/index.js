@@ -66,6 +66,21 @@ mongoose
     // 创建示例主题
     await seedTopics();
     
+    // 检查是否已有博客文章，如果没有则生成一批
+    const Post = require('./models/Post');
+    const { triggerContentGeneration } = require('./services/scheduler');
+    
+    const postCount = await Post.countDocuments();
+    if (postCount === 0) {
+      logger.info('未发现任何博客文章，开始自动生成初始文章...');
+      try {
+        await triggerContentGeneration(config.content.postsPerBatch);
+        logger.info('初始博客文章生成成功');
+      } catch (error) {
+        logger.error(`初始博客文章生成失败: ${error.message}`);
+      }
+    }
+    
     // 启动服务器
     app.listen(config.server.port, () => {
       logger.info(`服务器运行在 http://localhost:${config.server.port}`);
