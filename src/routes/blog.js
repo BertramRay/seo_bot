@@ -55,14 +55,28 @@ router.get('/', async (req, res, next) => {
 router.get('/:slug', async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const isPreview = req.query.preview === 'true';
     
-    // 查找文章
-    const post = await Post.findOne({ slug, status: 'published' });
+    // 查找文章 - 如果是预览模式，则允许查看草稿文章
+    const query = { slug };
+    if (!isPreview) {
+      query.status = 'published';
+    }
+    
+    const post = await Post.findOne(query);
     
     if (!post) {
       return res.status(404).render('error', {
         title: '文章不存在',
         message: '您访问的文章不存在或已被删除',
+      });
+    }
+    
+    // 如果是草稿状态但不是预览模式，则返回404
+    if (post.status !== 'published' && !isPreview) {
+      return res.status(404).render('error', {
+        title: '文章未发布',
+        message: '此文章尚未发布，无法查看',
       });
     }
     
@@ -79,6 +93,7 @@ router.get('/:slug', async (req, res, next) => {
       title: post.title,
       post,
       relatedPosts,
+      isPreview,
       metaTitle: post.metaTitle || post.title,
       metaDescription: post.metaDescription || post.excerpt,
       keywords: post.keywords.join(', '),

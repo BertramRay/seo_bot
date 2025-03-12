@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO博客 - 内容生成</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+    .sidebar {
+      background-color: #343a40;
+      min-height: 100vh;
+      color: white;
+    }
+    .sidebar a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      padding: 10px 15px;
+      display: block;
+    }
+    .sidebar a:hover {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .sidebar .active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    .content {
+      padding: 20px;
+    }
+    .card {
+      margin-bottom: 20px;
+    }
+    .form-check {
+      padding-left: 1.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 侧边栏 -->
+      <div class="col-md-2 sidebar p-0">
+        <div class="py-4 px-3 mb-4">
+          <h5>SEO博客管理</h5>
+        </div>
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a href="/admin">仪表盘</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/topics">主题管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/posts">文章管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/generate" class="active">生成内容</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/settings">系统设置</a>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <h2 class="mb-4">内容生成</h2>
+        
+        <!-- 批量生成面板 -->
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                批量生成内容
+              </div>
+              <div class="card-body">
+                <p class="card-text">根据活跃主题自动生成多篇文章</p>
+                <form action="/admin/generate" method="POST" id="batchGenerateForm">
+                  <div class="mb-3">
+                    <label for="count" class="form-label">生成文章数量</label>
+                    <input type="number" class="form-control" id="count" name="count" min="1" max="10" value="5">
+                    <div class="form-text">一次生成多少篇文章(1-10)</div>
+                  </div>
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-primary" id="batchGenerateBtn">开始生成</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 指定主题生成面板 -->
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                按主题生成
+              </div>
+              <div class="card-body">
+                <p class="card-text">为指定主题生成文章</p>
+                <form action="/admin/generate" method="POST" id="topicGenerateForm">
+                  <div class="mb-3">
+                    <label for="topicId" class="form-label">选择主题</label>
+                    <select class="form-select" id="topicId" name="topicId" required>
+                      <option value="">-- 选择主题 --</option>
+                      <% if (topics && topics.length > 0) { %>
+                        <% topics.forEach(topic => { %>
+                          <option value="<%= topic._id %>"><%= topic.name %> (<%= topic.status %>)</option>
+                        <% }) %>
+                      <% } %>
+                    </select>
+                  </div>
+                  <input type="hidden" name="count" value="1">
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-success" id="topicGenerateBtn">为此主题生成文章</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 生成选项 -->
+        <div class="card mt-4">
+          <div class="card-header">
+            高级选项
+          </div>
+          <div class="card-body">
+            <p class="text-muted small mb-3">这些设置将在系统设置中全局配置，此处修改仅对当前会话有效</p>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3 form-check">
+                  <input type="checkbox" class="form-check-input" id="autoPublish" name="autoPublish" <%= config.content.autoPublish ? 'checked' : '' %>>
+                  <label class="form-check-label" for="autoPublish">自动发布生成的文章</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 生成历史记录 -->
+        <div class="card mt-4">
+          <div class="card-header">
+            最近生成记录
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>生成数量</th>
+                    <th>成功数</th>
+                    <th>主题</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (history && history.length > 0) { %>
+                    <% history.forEach(record => { %>
+                      <tr>
+                        <td><%= new Date(record.createdAt).toLocaleString('zh-CN') %></td>
+                        <td><%= record.requestedCount %></td>
+                        <td><%= record.successCount %></td>
+                        <td>
+                          <% if (record.topics && record.topics.length > 0) { %>
+                            <span class="badge bg-info"><%= record.topics.length %>个主题</span>
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    type="button" 
+                                    data-bs-toggle="tooltip" 
+                                    title="<%= record.topics.map(t => t.name).join(', ') %>">
+                              查看
+                            </button>
+                          <% } else { %>
+                            <span class="text-muted">-</span>
+                          <% } %>
+                        </td>
+                        <td>
+                          <% if (record.status === 'completed') { %>
+                            <span class="badge bg-success">完成</span>
+                          <% } else if (record.status === 'processing') { %>
+                            <span class="badge bg-warning">处理中</span>
+                          <% } else if (record.status === 'failed') { %>
+                            <span class="badge bg-danger" title="<%= record.error %>">失败</span>
+                          <% } %>
+                        </td>
+                        <td>
+                          <% if (record.posts && record.posts.length > 0) { %>
+                            <div class="dropdown">
+                              <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="dropdownMenuButton<%= record._id %>" data-bs-toggle="dropdown" aria-expanded="false">
+                                查看文章
+                              </button>
+                              <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton<%= record._id %>">
+                                <% record.posts.forEach(post => { %>
+                                  <li><a class="dropdown-item" href="/admin/posts/edit/<%= post._id %>" target="_blank"><%= post.title %></a></li>
+                                <% }) %>
+                              </ul>
+                            </div>
+                          <% } else { %>
+                            <span class="text-muted">-</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  <% } else { %>
+                    <tr>
+                      <td colspan="6" class="text-center">暂无生成记录</td>
+                    </tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 提示信息 -->
+        <div class="card mt-4 bg-light">
+          <div class="card-body">
+            <h5 class="card-title">内容生成说明</h5>
+            <p class="card-text">
+              系统使用OpenAI API生成原创内容，每篇文章消耗约1000-2000 tokens。
+              请注意，生成过程可能需要几分钟时间，取决于所选数量和网络状况。
+              建议使用定时生成功能，可在系统设置中配置。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 加载提示模态框 -->
+  <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="loadingModalLabel">正在生成内容</h5>
+        </div>
+        <div class="modal-body text-center">
+          <div class="d-flex align-items-center justify-content-center mb-3">
+            <div class="spinner-border text-primary me-2" role="status"></div>
+            <strong>正在生成内容，请耐心等待...</strong>
+          </div>
+          <p>内容生成可能需要几分钟时间，请不要关闭页面。</p>
+          <div class="progress">
+            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // 初始化工具提示
+    document.addEventListener('DOMContentLoaded', function() {
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    });
+    
+    // 表单提交时显示加载提示
+    document.getElementById('batchGenerateForm').addEventListener('submit', function() {
+      showLoadingModal();
+    });
+    
+    document.getElementById('topicGenerateForm').addEventListener('submit', function() {
+      showLoadingModal();
+    });
+    
+    // 显示加载提示
+    function showLoadingModal() {
+      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+      loadingModal.show();
+      
+      // 模拟进度条
+      let progress = 0;
+      const progressBar = document.getElementById('progressBar');
+      
+      const interval = setInterval(function() {
+        if (progress >= 90) {
+          clearInterval(interval);
+        } else {
+          progress += Math.random() * 5;
+          progressBar.style.width = Math.min(progress, 90) + '%';
+        }
+      }, 3000);
+    }
+    
+    // 自动发布选项与系统设置同步
+    document.getElementById('autoPublish').addEventListener('change', function() {
+      const isChecked = this.checked;
+      
+      // 发送请求更新系统设置
+      fetch('/admin/settings/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `section=content&content[autoPublish]=${isChecked ? 'on' : 'off'}`
+      });
+    });
+  </script>
+</body>
+</html> 

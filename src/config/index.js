@@ -22,6 +22,8 @@ module.exports = {
     postsPerBatch: parseInt(process.env.POSTS_PER_BATCH || '5', 10),
     minWordsPerPost: parseInt(process.env.MIN_WORDS_PER_POST || '800', 10),
     maxWordsPerPost: parseInt(process.env.MAX_WORDS_PER_POST || '1500', 10),
+    autoPublish: process.env.CONTENT_AUTO_PUBLISH === 'true' || process.env.CONTENT_AUTO_PUBLISH === true || true,
+    customCronExpression: process.env.CUSTOM_CRON_EXPRESSION || '0 3 * * *',
   },
   seo: {
     defaultKeywords: (process.env.DEFAULT_KEYWORDS || '').split(','),

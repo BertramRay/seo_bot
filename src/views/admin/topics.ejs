@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO博客 - 主题管理</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+    .sidebar {
+      background-color: #343a40;
+      min-height: 100vh;
+      color: white;
+    }
+    .sidebar a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      padding: 10px 15px;
+      display: block;
+    }
+    .sidebar a:hover {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .sidebar .active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    .content {
+      padding: 20px;
+    }
+    .badge-active {
+      background-color: #28a745;
+    }
+    .badge-inactive {
+      background-color: #6c757d;
+    }
+    .badge-draft {
+      background-color: #ffc107;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 侧边栏 -->
+      <div class="col-md-2 sidebar p-0">
+        <div class="py-4 px-3 mb-4">
+          <h5>SEO博客管理</h5>
+        </div>
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a href="/admin">仪表盘</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/topics" class="active">主题管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/posts">文章管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/generate">生成内容</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/settings">系统设置</a>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>主题管理</h2>
+          <a href="/admin/topics/new" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 添加新主题
+          </a>
+        </div>
+        
+        <!-- 主题列表 -->
+        <div class="card">
+          <div class="card-body">
+            <% if (topics && topics.length > 0) { %>
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>主题名称</th>
+                      <th>关键词</th>
+                      <th>分类</th>
+                      <th>优先级</th>
+                      <th>文章数</th>
+                      <th>状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% topics.forEach(topic => { %>
+                      <tr>
+                        <td><%= topic.name %></td>
+                        <td>
+                          <% topic.keywords.slice(0, 3).forEach(keyword => { %>
+                            <span class="badge bg-secondary me-1"><%= keyword %></span>
+                          <% }) %>
+                          <% if (topic.keywords.length > 3) { %>
+                            <span class="badge bg-light text-dark">+<%= topic.keywords.length - 3 %></span>
+                          <% } %>
+                        </td>
+                        <td>
+                          <% topic.categories.forEach(category => { %>
+                            <span class="badge bg-info me-1"><%= category %></span>
+                          <% }) %>
+                        </td>
+                        <td><%= topic.priority %></td>
+                        <td><%= topic.postsGenerated || 0 %></td>
+                        <td>
+                          <% if (topic.status === 'active') { %>
+                            <span class="badge badge-active">活跃</span>
+                          <% } else if (topic.status === 'inactive') { %>
+                            <span class="badge badge-inactive">停用</span>
+                          <% } else if (topic.status === 'draft') { %>
+                            <span class="badge badge-draft">草稿</span>
+                          <% } %>
+                        </td>
+                        <td>
+                          <div class="btn-group">
+                            <a href="/admin/topics/edit/<%= topic._id %>" class="btn btn-sm btn-outline-primary">编辑</a>
+                            <button class="btn btn-sm btn-outline-success" onclick="generateContent('<%= topic._id %>')">生成文章</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTopic('<%= topic._id %>')">删除</button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } else { %>
+              <div class="alert alert-info">
+                暂无主题，请添加新主题来开始生成内容
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function generateContent(topicId) {
+      if (confirm('确定要为此主题生成新的文章吗？')) {
+        // 创建表单并提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/generate';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'topicId';
+        input.value = topicId;
+        
+        const countInput = document.createElement('input');
+        countInput.type = 'hidden';
+        countInput.name = 'count';
+        countInput.value = '1';
+        
+        form.appendChild(input);
+        form.appendChild(countInput);
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+    
+    function deleteTopic(topicId) {
+      if (confirm('确定要删除此主题吗？此操作不可撤销！')) {
+        // 创建表单并提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/topics/delete/' + topicId;
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+  </script>
+</body>
+</html> 

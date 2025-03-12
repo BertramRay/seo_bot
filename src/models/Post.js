@@ -29,6 +29,10 @@ const postSchema = new mongoose.Schema(
       type: String,
       trim: true,
     }],
+    topic: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Topic',
+    },
     metaTitle: {
       type: String,
       trim: true,
@@ -39,7 +43,7 @@ const postSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'published', 'archived'],
+      enum: ['draft', 'published', 'archived', 'deleted'],
       default: 'draft',
     },
     publishedAt: {

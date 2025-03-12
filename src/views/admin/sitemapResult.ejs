@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO博客 - 站点地图生成结果</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+    .sidebar {
+      background-color: #343a40;
+      min-height: 100vh;
+      color: white;
+    }
+    .sidebar a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      padding: 10px 15px;
+      display: block;
+    }
+    .sidebar a:hover {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .sidebar .active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    .content {
+      padding: 20px;
+    }
+    .sitemap-url {
+      word-break: break-all;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 侧边栏 -->
+      <div class="col-md-2 sidebar p-0">
+        <div class="py-4 px-3 mb-4">
+          <h5>SEO博客管理</h5>
+        </div>
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a href="/admin">仪表盘</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/topics">主题管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/posts">文章管理</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/generate">生成内容</a>
+          </li>
+          <li class="nav-item">
+            <a href="/admin/settings">系统设置</a>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>站点地图生成结果</h2>
+          <div>
+            <a href="/admin" class="btn btn-outline-secondary">返回仪表盘</a>
+          </div>
+        </div>
+        
+        <!-- 生成结果 -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <% if (sitemapUrl) { %>
+              <div class="alert alert-success mb-4">
+                <i class="bi bi-check-circle-fill me-2"></i> 站点地图已成功生成！
+              </div>
+              
+              <h5>站点地图URL:</h5>
+              <div class="sitemap-url mb-4">
+                <%= sitemapUrl %>
+              </div>
+              
+              <div class="d-grid gap-2 d-md-flex">
+                <a href="<%= sitemapUrl %>" target="_blank" class="btn btn-primary">查看站点地图</a>
+                <button class="btn btn-outline-secondary" onclick="copyToClipboard('<%= sitemapUrl %>')">复制URL</button>
+              </div>
+              
+              <hr>
+              
+              <h5 class="mt-4">提交站点地图到搜索引擎</h5>
+              <p>您可以将站点地图提交到以下搜索引擎，以帮助它们更好地索引您的网站内容：</p>
+              
+              <div class="row mt-3">
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">Google</h5>
+                      <p class="card-text">通过Google Search Console提交站点地图</p>
+                      <a href="https://search.google.com/search-console" target="_blank" class="btn btn-sm btn-outline-primary">打开Search Console</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">Bing</h5>
+                      <p class="card-text">通过Bing Webmaster Tools提交站点地图</p>
+                      <a href="https://www.bing.com/webmasters/about" target="_blank" class="btn btn-sm btn-outline-primary">打开Webmaster Tools</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% } else { %>
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> 站点地图生成失败，请检查系统日志获取详细信息
+              </div>
+              
+              <div class="mt-4">
+                <h5>可能的原因：</h5>
+                <ul>
+                  <li>文件系统权限问题</li>
+                  <li>站点URL配置错误</li>
+                  <li>没有已发布的文章</li>
+                </ul>
+              </div>
+              
+              <div class="mt-4">
+                <a href="/admin/settings#seo" class="btn btn-outline-primary">检查SEO设置</a>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(function() {
+        alert('站点地图URL已复制到剪贴板');
+      }, function(err) {
+        console.error('无法复制文本: ', err);
+      });
+    }
+  </script>
+</body>
+</html> 

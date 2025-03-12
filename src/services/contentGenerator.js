@@ -2,6 +2,7 @@ const { OpenAI } = require('openai');
 const config = require('../config');
 const Post = require('../models/Post');
 const Topic = require('../models/Topic');
+const GenerationHistory = require('../models/GenerationHistory');
 const { logger } = require('../utils/logger');
 
 // 初始化OpenAI客户端
@@ -152,7 +153,8 @@ const saveGeneratedArticle = async (articleData) => {
   try {
     const post = new Post({
       ...articleData,
-      status: 'draft',
+      status: config.content.autoPublish ? 'published' : 'draft',
+      publishedAt: config.content.autoPublish ? new Date() : null,
       isGenerated: true,
       generatedBy: 'openai',
     });
@@ -193,7 +195,7 @@ const publishArticle = async (postId) => {
 };
 
 /**
- * 自动生成并发布博客文章
+ * 自动生成并发布博客文章 - 支持并发执行
  * @param {Number} count - 要生成的文章数量
  * @returns {Promise<Array>} - 生成的文章数组
  */
@@ -201,46 +203,122 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
   try {
     logger.info(`开始批量生成 ${count} 篇文章`);
     
-    // 获取活跃主题
+    // 创建历史记录
+    const history = new GenerationHistory({
+      requestedCount: count,
+      successCount: 0,
+      status: 'processing'
+    });
+    await history.save();
+    
+    // 获取活跃主题 - 按照生成数量和优先级排序
     const topics = await Topic.find({ status: 'active' })
-      .sort({ postsGenerated: 1, priority: -1 })
-      .limit(count);
+      .sort({ postsGenerated: 1, priority: -1 });
     
     if (topics.length === 0) {
       logger.warn('没有找到活跃的主题，无法生成内容');
+      
+      // 更新历史记录
+      history.status = 'failed';
+      history.error = '没有找到活跃的主题';
+      await history.save();
+      
       return [];
     }
     
-    const generatedPosts = [];
+    // 确定要使用的主题
+    let topicsToUse = [];
     
-    // 为每个主题生成内容
-    for (const topic of topics) {
+    if (count >= topics.length) {
+      // 如果要生成的文章数量大于等于主题数量，则使用所有主题
+      topicsToUse = topics;
+    } else {
+      // 如果要生成的文章数量少于主题数量，则选择优先级最高的主题
+      topicsToUse = topics.slice(0, count);
+    }
+    
+    logger.info(`找到 ${topics.length} 个活跃主题，将为 ${topicsToUse.length} 个主题生成内容`);
+    
+    // 保存使用的主题ID
+    history.topics = topicsToUse.map(topic => topic._id);
+    await history.save();
+    
+    // 并发生成内容
+    const generationPromises = topicsToUse.map(async (topic) => {
       try {
+        logger.info(`开始为主题 "${topic.name}" 生成内容`);
+        
         // 生成内容
         const content = await generateBlogContent(topic);
         
+        // 添加关联到主题
+        content.topic = topic._id;
+        content.categories = topic.categories;
+        
         // 保存文章
-        const post = await saveGeneratedArticle(content);
+        const post = await saveGeneratedArticle({
+          ...content,
+          topic: topic._id,
+        });
         
-        // 发布文章
-        await publishArticle(post._id);
+        // 更新返回结果
+        const populatedPost = await Post.findById(post._id).populate('topic');
         
-        generatedPosts.push(post);
-        
-        // 添加随机延迟，避免API限制
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+        // 返回结果
+        return { success: true, post: populatedPost };
       } catch (topicError) {
         logger.error(`处理主题 "${topic.name}" 时出错: ${topicError.message}`);
-        continue;
+        return { success: false, error: topicError.message, topic };
       }
-    }
+    });
     
-    logger.info(`成功生成并发布了 ${generatedPosts.length} 篇文章`);
+    // 等待所有生成任务完成
+    const results = await Promise.all(generationPromises);
+    
+    // 收集成功的文章
+    const generatedPosts = results
+      .filter(result => result.success)
+      .map(result => result.post);
+    
+    // 更新历史记录
+    history.successCount = generatedPosts.length;
+    history.status = 'completed';
+    history.posts = generatedPosts.map(post => post._id);
+    await history.save();
+    
+    logger.info(`成功生成了 ${generatedPosts.length} 篇文章`);
     
     return generatedPosts;
   } catch (error) {
     logger.error(`批量生成文章时出错: ${error.message}`);
+    
+    // 更新历史记录
+    const historyRecord = await GenerationHistory.findOne({ status: 'processing' }).sort({ createdAt: -1 });
+    if (historyRecord) {
+      historyRecord.status = 'failed';
+      historyRecord.error = error.message;
+      await historyRecord.save();
+    }
+    
     throw new Error(`批量生成失败: ${error.message}`);
+  }
+};
+
+/**
+ * 获取最近的生成历史
+ * @param {Number} limit - 返回历史记录的数量
+ * @returns {Promise<Array>} - 生成历史记录
+ */
+const getRecentGenerationHistory = async (limit = 5) => {
+  try {
+    return await GenerationHistory.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('topics')
+      .populate('posts');
+  } catch (error) {
+    logger.error(`获取生成历史记录时出错: ${error.message}`);
+    return [];
   }
 };
 
@@ -249,4 +327,5 @@ module.exports = {
   saveGeneratedArticle,
   publishArticle,
   generateAndPublishPosts,
+  getRecentGenerationHistory,
 }; 
