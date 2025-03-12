@@ -1,0 +1,10 @@
+# SEO博客机器人的robots.txt文件
+User-agent: *
+Allow: /
+Allow: /blog/
+Allow: /blog/*
+Disallow: /admin/
+Disallow: /api/
+
+# 站点地图
+Sitemap: https://yourdomain.com/sitemap.xml 

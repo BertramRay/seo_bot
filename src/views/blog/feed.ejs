@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title><%= site.title %></title>
+    <link><%= site.url %><%= site.blogPath %></link>
+    <description><%= site.description %></description>
+    <language>zh-cn</language>
+    <lastBuildDate><%= new Date().toUTCString() %></lastBuildDate>
+    <atom:link href="<%= site.url %><%= site.blogPath %>/feed.xml" rel="self" type="application/rss+xml" />
+    
+    <% posts.forEach(function(post) { %>
+      <item>
+        <title><%= post.title %></title>
+        <link><%= site.url %><%= site.blogPath %>/<%= post.slug %></link>
+        <guid isPermaLink="true"><%= site.url %><%= site.blogPath %>/<%= post.slug %></guid>
+        <pubDate><%= new Date(post.publishedAt).toUTCString() %></pubDate>
+        <description><![CDATA[<%= post.excerpt %>]]></description>
+        <content:encoded><![CDATA[<%- post.content %>]]></content:encoded>
+        <% if (post.categories && post.categories.length > 0) { %>
+          <% post.categories.forEach(function(category) { %>
+            <category><%= category %></category>
+          <% }); %>
+        <% } %>
+      </item>
+    <% }); %>
+  </channel>
+</rss>

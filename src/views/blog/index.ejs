@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="<%= locals.language || 'zh-CN' %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= metaTitle %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta name="robots" content="index, follow">
+  <!-- 引入搜索引擎所需的结构化数据 -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "<%= title %>",
+      "description": "<%= description %>",
+      "url": "<%= canonicalUrl %>"
+    }
+  </script>
+</head>
+<body>
+  <header class="blog-header">
+    <div class="container">
+      <h1 class="blog-title"><%= title %></h1>
+      <p class="blog-description"><%= description %></p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="posts-list">
+      <% if (posts && posts.length > 0) { %>
+        <% posts.forEach(post => { %>
+          <article class="post-card">
+            <h2 class="post-title">
+              <a href="<%= `/blog/${post.slug}` %>"><%= post.title %></a>
+            </h2>
+            <div class="post-meta">
+              <span class="post-date"><%= new Date(post.publishedAt).toLocaleDateString('zh-CN') %></span>
+              <span class="post-reading-time"><%= post.readingTime %> 分钟阅读</span>
+            </div>
+            <div class="post-excerpt">
+              <p><%= post.excerpt %></p>
+            </div>
+            <div class="post-categories">
+              <% if (post.categories && post.categories.length > 0) { %>
+                <% post.categories.forEach(category => { %>
+                  <a href="<%= `/blog/category/${category}` %>" class="category-badge"><%= category %></a>
+                <% }) %>
+              <% } %>
+            </div>
+            <a href="<%= `/blog/${post.slug}` %>" class="read-more">阅读全文 →</a>
+          </article>
+        <% }) %>
+      <% } else { %>
+        <div class="no-posts">
+          <p>暂无文章</p>
+        </div>
+      <% } %>
+    </div>
+
+    <% if (locals.pagination && pagination.totalPages > 1) { %>
+      <div class="pagination">
+        <% if (pagination.hasPrevPage) { %>
+          <a href="<%= `/blog?page=${pagination.page - 1}` %>" class="pagination-prev">上一页</a>
+        <% } %>
+
+        <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+          <% if (i === pagination.page) { %>
+            <span class="pagination-active"><%= i %></span>
+          <% } else { %>
+            <a href="<%= `/blog?page=${i}` %>" class="pagination-link"><%= i %></a>
+          <% } %>
+        <% } %>
+
+        <% if (pagination.hasNextPage) { %>
+          <a href="<%= `/blog?page=${pagination.page + 1}` %>" class="pagination-next">下一页</a>
+        <% } %>
+      </div>
+    <% } %>
+  </main>
+
+  <footer class="blog-footer">
+    <div class="container">
+      <p>&copy; <%= new Date().getFullYear() %> <%= title %>. All rights reserved.</p>
+      <p>
+        <a href="/feed.xml">RSS订阅</a> |
+        <a href="/sitemap.xml">站点地图</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html> 
