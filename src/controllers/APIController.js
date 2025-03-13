@@ -9,110 +9,77 @@ const {
 const { triggerSitemapGeneration } = require('../services/scheduler');
 const { logger } = require('../utils/logger');
 const { createPagination, paginateQuery } = require('../utils/pagination');
+const postRepository = require('../repositories/PostRepository');
+const { sendSuccess, sendError } = require('../utils/responseUtils');
+const { apiAsyncHandler } = require('../utils/controllerUtils');
 
 /**
  * 健康检查
  */
 exports.health = (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+  sendSuccess(res, { timestamp: new Date() }, '系统正常');
 };
 
 /**
  * 获取博客文章列表
  */
-exports.getPosts = async (req, res, next) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const status = req.query.status || 'published';
-    
-    // 构建查询条件
-    const query = {};
-    if (status !== 'all') {
-      query.status = status;
-    }
-    
-    if (req.query.category) {
-      query.categories = req.query.category;
-    }
-    
-    if (req.query.keyword) {
-      query.keywords = req.query.keyword;
-    }
-    
-    // 获取文章
-    const postsQuery = Post.find(query).sort({ publishedAt: -1 });
-    const posts = await paginateQuery(postsQuery, page, limit);
-    
-    // 获取总数
-    const total = await Post.countDocuments(query);
-    
-    // 分页信息
-    const pagination = createPagination(page, limit, total);
-    
-    res.json({
-      status: 'success',
-      data: {
-        posts,
-        pagination
-      }
-    });
-  } catch (error) {
-    logger.error(`API获取文章列表出错: ${error.message}`);
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
+exports.getPosts = apiAsyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'published';
+  
+  // 构建查询选项
+  const options = {
+    status,
+    page,
+    limit
+  };
+  
+  // 添加分类过滤
+  if (req.query.category) {
+    options.category = req.query.category;
   }
-};
+  
+  // 添加关键词过滤
+  if (req.query.keyword) {
+    options.keyword = req.query.keyword;
+  }
+  
+  // 使用仓库获取分页文章
+  const { posts, total } = await postRepository.getPaginatedPosts(options);
+  
+  // 分页信息
+  const pagination = createPagination(page, limit, total);
+  
+  // 使用响应工具发送成功响应
+  sendSuccess(res, {
+    posts,
+    pagination
+  });
+});
 
 /**
  * 获取单篇文章
  */
-exports.getPost = async (req, res, next) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    
-    if (!post) {
-      return res.status(404).json({
-        status: 'error',
-        message: '文章不存在',
-      });
-    }
-    
-    res.json({
-      status: 'success',
-      data: { post }
-    });
-  } catch (error) {
-    logger.error(`API获取单篇文章出错: ${error.message}`);
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
+exports.getPost = apiAsyncHandler(async (req, res) => {
+  const post = await postRepository.getPostById(req.params.id);
+  
+  if (!post) {
+    return sendError(res, '文章不存在', 404);
   }
-};
+  
+  sendSuccess(res, { post });
+});
 
 /**
  * 获取主题列表
  */
-exports.getTopics = async (req, res, next) => {
-  try {
-    const topics = await Topic.find()
-      .sort({ postsGenerated: 1, priority: -1 });
-    
-    res.json({
-      status: 'success',
-      data: { topics }
-    });
-  } catch (error) {
-    logger.error(`API获取主题列表出错: ${error.message}`);
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
-  }
-};
+exports.getTopics = apiAsyncHandler(async (req, res) => {
+  const topics = await Topic.find()
+    .sort({ postsGenerated: 1, priority: -1 });
+  
+  sendSuccess(res, { topics });
+});
 
 /**
  * 创建主题
