@@ -3,244 +3,142 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SEO博客 - 文章管理</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      background-color: #f5f5f5;
-    }
-    .sidebar {
-      background-color: #343a40;
-      min-height: 100vh;
-      color: white;
-    }
-    .sidebar a {
-      color: rgba(255, 255, 255, 0.8);
-      text-decoration: none;
-      padding: 10px 15px;
-      display: block;
-    }
-    .sidebar a:hover {
-      color: white;
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-    .sidebar .active {
-      background-color: rgba(255, 255, 255, 0.2);
-      color: white;
-    }
-    .content {
-      padding: 20px;
-    }
-    .table td {
-      vertical-align: middle;
-    }
-    .badge-published {
-      background-color: #28a745;
-    }
-    .badge-draft {
-      background-color: #ffc107;
-    }
-    .badge-deleted {
-      background-color: #dc3545;
-    }
-    .title-cell {
-      max-width: 300px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  </style>
+  <title>文章管理 - SEO博客管理系统</title>
+  <%- include('../partials/styles') %>
 </head>
 <body>
   <div class="container-fluid">
     <div class="row">
-      <!-- 侧边栏 -->
-      <div class="col-md-2 sidebar p-0">
-        <div class="py-4 px-3 mb-4">
-          <h5>SEO博客管理</h5>
-        </div>
-        <ul class="nav flex-column">
-          <li class="nav-item">
-            <a href="/admin">仪表盘</a>
-          </li>
-          <li class="nav-item">
-            <a href="/admin/topics">主题管理</a>
-          </li>
-          <li class="nav-item">
-            <a href="/admin/posts" class="active">文章管理</a>
-          </li>
-          <li class="nav-item">
-            <a href="/admin/generate">生成内容</a>
-          </li>
-          <li class="nav-item">
-            <a href="/admin/settings">系统设置</a>
-          </li>
-        </ul>
-      </div>
+      <%- include('../partials/sidebar', { currentPage: 'posts' }) %>
       
       <!-- 主内容区 -->
       <div class="col-md-10 content">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2>文章管理</h2>
-          <a href="/admin/generate" class="btn btn-primary">
-            生成新文章
-          </a>
-        </div>
+        <h2 class="mb-4">文章管理</h2>
         
-        <!-- 筛选器 -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <form action="/admin/posts" method="GET" class="row g-3">
-              <div class="col-md-4">
-                <label for="status" class="form-label">状态筛选</label>
-                <select class="form-select" id="status" name="status" onchange="this.form.submit()">
-                  <option value="all" <%= currentStatus === 'all' ? 'selected' : '' %>>所有状态</option>
-                  <option value="published" <%= currentStatus === 'published' ? 'selected' : '' %>>已发布</option>
-                  <option value="draft" <%= currentStatus === 'draft' ? 'selected' : '' %>>草稿</option>
-                  <option value="deleted" <%= currentStatus === 'deleted' ? 'selected' : '' %>>已删除</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label for="limit" class="form-label">每页显示</label>
-                <select class="form-select" id="limit" name="limit" onchange="this.form.submit()">
-                  <option value="10" <%= pagination.limit === 10 ? 'selected' : '' %>>10</option>
-                  <option value="20" <%= pagination.limit === 20 ? 'selected' : '' %>>20</option>
-                  <option value="50" <%= pagination.limit === 50 ? 'selected' : '' %>>50</option>
-                  <option value="100" <%= pagination.limit === 100 ? 'selected' : '' %>>100</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label for="search" class="form-label">搜索文章</label>
-                <input type="text" class="form-control" id="search" name="search" placeholder="输入标题或关键词">
-              </div>
+        <!-- 操作按钮 -->
+        <div class="d-flex justify-content-between mb-3">
+          <a href="/admin/generate" class="btn btn-primary">生成新文章</a>
+          
+          <!-- 筛选选项 -->
+          <div class="d-flex">
+            <div class="dropdown me-2">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                状态: <%= typeof status !== 'undefined' ? (status === 'all' ? '全部' : (status === 'published' ? '已发布' : (status === 'draft' ? '草稿' : '已删除'))) : '全部' %>
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item <%= typeof status !== 'undefined' && status === 'all' ? 'active' : '' %>" href="/admin/posts?status=all">全部</a></li>
+                <li><a class="dropdown-item <%= typeof status !== 'undefined' && status === 'published' ? 'active' : '' %>" href="/admin/posts?status=published">已发布</a></li>
+                <li><a class="dropdown-item <%= typeof status !== 'undefined' && status === 'draft' ? 'active' : '' %>" href="/admin/posts?status=draft">草稿</a></li>
+                <li><a class="dropdown-item <%= typeof status !== 'undefined' && status === 'deleted' ? 'active' : '' %>" href="/admin/posts?status=deleted">已删除</a></li>
+              </ul>
+            </div>
+            
+            <div class="dropdown me-2">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                主题: <%= typeof topic !== 'undefined' ? (topic === 'all' ? '全部' : (typeof topicName !== 'undefined' ? topicName : '未知')) : '全部' %>
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item <%= typeof topic !== 'undefined' && topic === 'all' ? 'active' : '' %>" href="/admin/posts?status=<%= typeof status !== 'undefined' ? status : 'all' %>&topic=all">全部</a></li>
+                <% if (typeof topics !== 'undefined' && topics.length > 0) { %>
+                  <% topics.forEach(t => { %>
+                    <li><a class="dropdown-item <%= typeof topic !== 'undefined' && topic === t._id.toString() ? 'active' : '' %>" href="/admin/posts?status=<%= typeof status !== 'undefined' ? status : 'all' %>&topic=<%= t._id %>"><%= t.name %></a></li>
+                  <% }) %>
+                <% } %>
+              </ul>
+            </div>
+            
+            <!-- 搜索框 -->
+            <form action="/admin/posts" method="GET" class="d-flex">
+              <input type="hidden" name="status" value="<%= typeof status !== 'undefined' ? status : 'all' %>">
+              <input type="hidden" name="topic" value="<%= typeof topic !== 'undefined' ? topic : 'all' %>">
+              <input type="text" name="search" class="form-control me-2" placeholder="搜索文章..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+              <button type="submit" class="btn btn-outline-secondary">搜索</button>
             </form>
           </div>
         </div>
         
         <!-- 文章列表 -->
         <div class="card">
-          <div class="card-body">
-            <% if (posts && posts.length > 0) { %>
-              <div class="table-responsive">
-                <table class="table table-hover">
-                  <thead>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>文章列表</span>
+            <span class="badge bg-secondary"><%= typeof posts !== 'undefined' ? posts.length : 0 %> 篇文章</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>标题</th>
+                  <th>主题</th>
+                  <th>状态</th>
+                  <th>创建日期</th>
+                  <th>发布日期</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (typeof posts !== 'undefined' && posts.length > 0) { %>
+                  <% posts.forEach(post => { %>
                     <tr>
-                      <th>标题</th>
-                      <th>创建日期</th>
-                      <th>主题</th>
-                      <th>关键词</th>
-                      <th>状态</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <% posts.forEach(post => { %>
-                      <tr>
-                        <td class="title-cell"><%= post.title %></td>
-                        <td><%= new Date(post.createdAt).toLocaleString('zh-CN') %></td>
-                        <td><%= post.topic ? post.topic.name : '未分类' %></td>
-                        <td>
-                          <% if (post.keywords && post.keywords.length > 0) { %>
-                            <% post.keywords.slice(0, 2).forEach(keyword => { %>
-                              <span class="badge bg-secondary me-1"><%= keyword %></span>
-                            <% }) %>
-                            <% if (post.keywords.length > 2) { %>
-                              <span class="badge bg-light text-dark">+<%= post.keywords.length - 2 %></span>
-                            <% } %>
-                          <% } else { %>
-                            <span class="text-muted">无关键词</span>
-                          <% } %>
-                        </td>
-                        <td>
+                      <td>
+                        <div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                          <%= post.title %>
+                        </div>
+                      </td>
+                      <td><%= post.topic ? post.topic.name : '未知' %></td>
+                      <td>
+                        <% if (post.status === 'published') { %>
+                          <span class="badge bg-success">已发布</span>
+                        <% } else if (post.status === 'draft') { %>
+                          <span class="badge bg-warning text-dark">草稿</span>
+                        <% } else if (post.status === 'deleted') { %>
+                          <span class="badge bg-danger">已删除</span>
+                        <% } %>
+                      </td>
+                      <td><%= post.createdAt ? post.createdAt.toLocaleString() : '未知' %></td>
+                      <td><%= post.publishedAt ? post.publishedAt.toLocaleString() : '未发布' %></td>
+                      <td>
+                        <div class="btn-group">
+                          <a href="/admin/posts/<%= post._id %>" class="btn btn-sm btn-outline-secondary">查看</a>
+                          <a href="/admin/posts/<%= post._id %>/edit" class="btn btn-sm btn-outline-primary">编辑</a>
                           <% if (post.status === 'published') { %>
-                            <span class="badge badge-published">已发布</span>
-                          <% } else if (post.status === 'draft') { %>
-                            <span class="badge badge-draft">草稿</span>
-                          <% } else if (post.status === 'deleted') { %>
-                            <span class="badge badge-deleted">已删除</span>
+                            <a href="<%= post.url %>" target="_blank" class="btn btn-sm btn-outline-info">预览</a>
                           <% } %>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <a href="/blog/<%= post.slug %>" target="_blank" class="btn btn-sm btn-outline-primary">查看</a>
-                            <a href="/admin/posts/edit/<%= post._id %>" class="btn btn-sm btn-outline-secondary">编辑</a>
-                            <% if (post.status !== 'published') { %>
-                              <button class="btn btn-sm btn-outline-success" onclick="publishPost('<%= post._id %>')">发布</button>
-                            <% } else { %>
-                              <button class="btn btn-sm btn-outline-warning" onclick="unpublishPost('<%= post._id %>')">取消发布</button>
-                            <% } %>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deletePost('<%= post._id %>')">删除</button>
-                          </div>
-                        </td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-              
-              <!-- 分页 -->
-              <% if (pagination.totalPages > 1) { %>
-                <nav aria-label="Page navigation">
-                  <ul class="pagination justify-content-center">
-                    <li class="page-item <%= !pagination.hasPrevPage ? 'disabled' : '' %>">
-                      <a class="page-link" href="/admin/posts?page=<%= pagination.page - 1 %>&limit=<%= pagination.limit %>&status=<%= currentStatus %>" tabindex="-1">上一页</a>
-                    </li>
-                    
-                    <% for (let i = 1; i <= pagination.totalPages; i++) { %>
-                      <li class="page-item <%= pagination.page === i ? 'active' : '' %>">
-                        <a class="page-link" href="/admin/posts?page=<%= i %>&limit=<%= pagination.limit %>&status=<%= currentStatus %>"><%= i %></a>
-                      </li>
-                    <% } %>
-                    
-                    <li class="page-item <%= !pagination.hasNextPage ? 'disabled' : '' %>">
-                      <a class="page-link" href="/admin/posts?page=<%= pagination.page + 1 %>&limit=<%= pagination.limit %>&status=<%= currentStatus %>">下一页</a>
-                    </li>
-                  </ul>
-                </nav>
-              <% } %>
-            <% } else { %>
-              <div class="alert alert-info">
-                暂无文章，请生成或创建新文章
-              </div>
-            <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="6" class="text-center py-3">暂无文章</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
           </div>
         </div>
+        
+        <!-- 分页 -->
+        <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+          <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+              <li class="page-item <%= typeof currentPage !== 'undefined' && currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="/admin/posts?page=<%= typeof currentPage !== 'undefined' ? currentPage - 1 : 1 %>&status=<%= typeof status !== 'undefined' ? status : 'all' %>&topic=<%= typeof topic !== 'undefined' ? topic : 'all' %>&search=<%= typeof search !== 'undefined' ? search : '' %>">上一页</a>
+              </li>
+              <% for (let i = 1; i <= totalPages; i++) { %>
+                <li class="page-item <%= typeof currentPage !== 'undefined' && currentPage === i ? 'active' : '' %>">
+                  <a class="page-link" href="/admin/posts?page=<%= i %>&status=<%= typeof status !== 'undefined' ? status : 'all' %>&topic=<%= typeof topic !== 'undefined' ? topic : 'all' %>&search=<%= typeof search !== 'undefined' ? search : '' %>"><%= i %></a>
+                </li>
+              <% } %>
+              <li class="page-item <%= typeof currentPage !== 'undefined' && currentPage === totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="/admin/posts?page=<%= typeof currentPage !== 'undefined' ? currentPage + 1 : 2 %>&status=<%= typeof status !== 'undefined' ? status : 'all' %>&topic=<%= typeof topic !== 'undefined' ? topic : 'all' %>&search=<%= typeof search !== 'undefined' ? search : '' %>">下一页</a>
+              </li>
+            </ul>
+          </nav>
+        <% } %>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    function publishPost(postId) {
-      if (confirm('确定要发布此文章吗？')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/posts/publish/' + postId;
-        document.body.appendChild(form);
-        form.submit();
-      }
-    }
-    
-    function unpublishPost(postId) {
-      if (confirm('确定要取消发布此文章吗？')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/posts/unpublish/' + postId;
-        document.body.appendChild(form);
-        form.submit();
-      }
-    }
-    
-    function deletePost(postId) {
-      if (confirm('确定要删除此文章吗？此操作不可撤销！')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/posts/delete/' + postId;
-        document.body.appendChild(form);
-        form.submit();
-      }
-    }
-  </script>
+  <%- include('../partials/scripts') %>
 </body>
 </html> 

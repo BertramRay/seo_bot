@@ -1,0 +1,122 @@
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<style>
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar {
+    background-color: #343a40;
+    min-height: 100vh;
+    color: white;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    padding: 10px 15px;
+    display: block;
+  }
+  .sidebar a:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  .sidebar .active {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+  .content {
+    padding: 20px;
+  }
+  .user-profile {
+    padding: 15px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: auto;
+  }
+  .user-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    font-size: 20px;
+    color: white;
+    overflow: hidden;
+  }
+  .user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .user-name {
+    font-weight: bold;
+    margin-bottom: 0;
+  }
+  .user-email {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-bottom: 0;
+  }
+  .badge-active {
+    background-color: #28a745;
+  }
+  .badge-inactive {
+    background-color: #6c757d;
+  }
+  .badge-draft {
+    background-color: #ffc107;
+  }
+  .badge-published {
+    background-color: #28a745;
+  }
+  .badge-deleted {
+    background-color: #dc3545;
+  }
+  .title-cell {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nav-tabs {
+    margin-bottom: 20px;
+  }
+  
+  /* 主容器样式调整 */
+  .container-fluid {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  /* 行样式调整 */
+  .row {
+    flex: 1;
+    margin: 0;
+  }
+  
+  /* 统计卡片样式 */
+  .stats-card {
+    height: 100%;
+    margin-bottom: 20px;
+  }
+  
+  /* 卡片样式优化 */
+  .card {
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+</style> 

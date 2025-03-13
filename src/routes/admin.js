@@ -38,28 +38,41 @@ router.get('/', async (req, res, next) => {
     
     // 计算下次生成时间
     let nextGeneration = '暂无计划';
+    let cronExpressionText = '';
     try {
       // 获取内容生成的cron表达式
       const cronExpression = getContentGenerationCronExpression();
+      cronExpressionText = cronExpression;
       
-      // 使用cron-parser解析表达式并计算下一次执行时间
-      const interval = parser.parseExpression(cronExpression, {
-        currentDate: new Date(),
-        tz: 'Asia/Shanghai'
-      });
-      
-      // 获取下一次执行时间并格式化为本地时间字符串
-      const nextDate = interval.next().toDate();
-      nextGeneration = nextDate.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // 确保cron-parser已正确导入
+      if (!parser || typeof parser.parseExpression !== 'function') {
+        logger.error('cron-parser模块未正确导入或parseExpression不是函数');
+        nextGeneration = `配置错误 (${cronExpression})`;
+      } else {
+        try {
+          // 使用cron-parser解析表达式并计算下一次执行时间
+          const interval = parser.parseExpression(cronExpression, {
+            currentDate: new Date(),
+            tz: 'Asia/Shanghai'
+          });
+          
+          // 获取下一次执行时间并格式化为本地时间字符串
+          const nextDate = interval.next().toDate();
+          nextGeneration = nextDate.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (parseError) {
+          logger.error(`解析cron表达式出错: ${parseError.message}`);
+          nextGeneration = `表达式无效 (${cronExpression})`;
+        }
+      }
     } catch (error) {
-      logger.error(`解析cron表达式出错: ${error.message}`);
-      nextGeneration = '解析错误';
+      logger.error(`计算下次生成时间出错: ${error.message}`);
+      nextGeneration = `计算错误 (${cronExpressionText || '未知'})`;
     }
     
     // 最近生成的文章

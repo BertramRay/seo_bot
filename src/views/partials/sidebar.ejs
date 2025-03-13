@@ -1,0 +1,63 @@
+<!-- 侧边栏 -->
+<div class="col-md-2 sidebar p-0 d-flex flex-column" style="min-height: 100vh;">
+  <div class="py-2 px-3 mb-2">
+    <h5>SEO博客管理</h5>
+  </div>
+  <ul class="nav flex-column">
+    <li class="nav-item">
+      <a href="/admin" class="<%= currentPage === 'dashboard' ? 'active' : '' %>">仪表盘</a>
+    </li>
+    <li class="nav-item">
+      <a href="/admin/topics" class="<%= currentPage === 'topics' ? 'active' : '' %>">主题管理</a>
+    </li>
+    <li class="nav-item">
+      <a href="/admin/posts" class="<%= currentPage === 'posts' ? 'active' : '' %>">文章管理</a>
+    </li>
+    <li class="nav-item">
+      <a href="/admin/generate" class="<%= currentPage === 'generate' ? 'active' : '' %>">生成内容</a>
+    </li>
+    <li class="nav-item">
+      <a href="/admin/settings" class="<%= currentPage === 'settings' ? 'active' : '' %>">系统设置</a>
+    </li>
+  </ul>
+  
+  <!-- 用户信息 - 底部 -->
+  <div class="user-profile mt-auto">
+    <div class="user-info">
+      <% if (typeof user !== 'undefined' && user && user.profilePicture) { %>
+        <img src="<%= user.profilePicture %>" alt="<%= user.username %>" class="user-avatar">
+      <% } else { %>
+        <div class="user-avatar">
+          <% if (typeof user !== 'undefined' && user) { %>
+            <%= user.username.charAt(0).toUpperCase() %>
+          <% } else { %>
+            <i class="bi bi-person"></i>
+          <% } %>
+        </div>
+      <% } %>
+      <div>
+        <% if (typeof user !== 'undefined' && user) { %>
+          <p class="user-name"><%= user.displayName || user.username %></p>
+          <p class="user-email"><%= user.email %></p>
+        <% } else { %>
+          <p class="user-name">游客</p>
+          <p class="user-email">未登录</p>
+        <% } %>
+      </div>
+    </div>
+    <div class="d-grid gap-2 px-2">
+      <% if (typeof user !== 'undefined' && user) { %>
+        <a href="/auth/profile" class="btn btn-sm btn-outline-light mb-2">
+          <i class="bi bi-person-circle"></i> 个人资料
+        </a>
+        <a href="/auth/logout" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-box-arrow-right"></i> 退出登录
+        </a>
+      <% } else { %>
+        <a href="/auth/login" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-box-arrow-in-right"></i> 登录
+        </a>
+      <% } %>
+    </div>
+  </div>
+</div> 
