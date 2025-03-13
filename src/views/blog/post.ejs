@@ -8,6 +8,10 @@
   <meta name="keywords" content="<%= keywords %>">
   <link rel="canonical" href="<%= canonicalUrl %>">
   <link rel="stylesheet" href="/css/style.css">
+  <!-- 添加Markdown样式 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.2.0/github-markdown.min.css">
+  <!-- 添加代码高亮样式 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
   <meta name="robots" content="index, follow">
   <!-- 结构化数据 - 文章 -->
   <script type="application/ld+json">
@@ -58,8 +62,13 @@
         </div>
       </header>
 
-      <div class="post-body">
-        <%- post.content %>
+      <div class="post-body markdown-body">
+        <% if (post.content) { %>
+          <!-- 直接使用服务器端渲染Markdown内容 -->
+          <%- post.content %>
+        <% } else { %>
+          <p class="text-muted">此文章暂无内容</p>
+        <% } %>
       </div>
 
       <div class="post-tags">
@@ -99,5 +108,19 @@
       </p>
     </div>
   </footer>
+  
+  <!-- 添加Markdown解析库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <!-- 添加代码高亮库 -->
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+  <script>
+    // 初始化代码高亮
+    document.addEventListener('DOMContentLoaded', function() {
+      // 查找所有代码块并应用高亮
+      document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightBlock(block);
+      });
+    });
+  </script>
 </body>
 </html> 

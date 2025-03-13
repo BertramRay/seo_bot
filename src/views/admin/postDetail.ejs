@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <%- include('../partials/styles') %>
+  <!-- 添加Markdown样式 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.2.0/github-markdown.min.css">
+  <!-- 添加代码高亮样式 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('../partials/sidebar', { currentPage: 'posts' }) %>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><%= post.title %></h2>
+          <div>
+            <a href="/admin/posts" class="btn btn-outline-secondary me-2">
+              <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+            <a href="/admin/posts/edit/<%= post._id %>" class="btn btn-primary me-2">
+              <i class="bi bi-pencil"></i> 编辑文章
+            </a>
+            <a href="/blog/<%= post.slug %>?preview=true" target="_blank" class="btn btn-outline-primary">
+              <i class="bi bi-eye"></i> 预览文章
+            </a>
+          </div>
+        </div>
+        
+        <% if (messages && messages.error) { %>
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <%= messages.error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <% if (messages && messages.success) { %>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <%= messages.success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <!-- 文章信息卡片 -->
+        <div class="card mb-4">
+          <div class="card-header">文章信息</div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>标题：</strong> <%= post.title %></p>
+                <p><strong>状态：</strong> 
+                  <% if (post.status === 'published') { %>
+                    <span class="badge bg-success">已发布</span>
+                  <% } else if (post.status === 'draft') { %>
+                    <span class="badge bg-warning text-dark">草稿</span>
+                  <% } else if (post.status === 'deleted') { %>
+                    <span class="badge bg-danger">已删除</span>
+                  <% } %>
+                </p>
+                <p><strong>Slug：</strong> <%= post.slug %></p>
+                <p><strong>创建时间：</strong> <%= post.createdAt.toLocaleString() %></p>
+                <p><strong>更新时间：</strong> <%= post.updatedAt.toLocaleString() %></p>
+                <% if (post.publishedAt) { %>
+                  <p><strong>发布时间：</strong> <%= post.publishedAt.toLocaleString() %></p>
+                <% } %>
+              </div>
+              <div class="col-md-6">
+                <p><strong>主题：</strong> <%= post.topic ? post.topic.name : '未设置' %></p>
+                <p><strong>阅读时间：</strong> <%= post.readingTime ? `${post.readingTime}分钟` : '未计算' %></p>
+                <p><strong>字数：</strong> <%= post.wordCount || '未计算' %></p>
+                <p><strong>关键词：</strong> 
+                  <% if (post.keywords && post.keywords.length > 0) { %>
+                    <% post.keywords.forEach(keyword => { %>
+                      <span class="badge bg-secondary me-1"><%= keyword %></span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="text-muted">无关键词</span>
+                  <% } %>
+                </p>
+                <p><strong>分类：</strong> 
+                  <% if (post.categories && post.categories.length > 0) { %>
+                    <% post.categories.forEach(category => { %>
+                      <span class="badge bg-info text-dark me-1"><%= category %></span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="text-muted">无分类</span>
+                  <% } %>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 文章摘要 -->
+        <div class="card mb-4">
+          <div class="card-header">文章摘要</div>
+          <div class="card-body">
+            <% if (post.excerpt) { %>
+              <p><%= post.excerpt %></p>
+            <% } else { %>
+              <p class="text-muted">此文章没有摘要</p>
+            <% } %>
+          </div>
+        </div>
+        
+        <!-- 文章内容 -->
+        <div class="card mb-4">
+          <div class="card-header">文章内容</div>
+          <div class="card-body">
+            <div class="content-preview markdown-body">
+              <% if (post.content) { %>
+                <!-- 直接使用服务器端渲染Markdown内容 -->
+                <%- post.content %>
+              <% } else { %>
+                <p class="text-muted">此文章没有内容</p>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        
+        <!-- SEO信息 -->
+        <div class="card mb-4">
+          <div class="card-header">SEO信息</div>
+          <div class="card-body">
+            <p><strong>Meta标题：</strong> <%= post.metaTitle || post.title %></p>
+            <p><strong>Meta描述：</strong> <%= post.metaDescription || post.excerpt || '无' %></p>
+          </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <form action="/admin/posts/delete/<%= post._id %>" method="POST" onsubmit="return confirm('确定要删除这篇文章吗？此操作不可撤销！');">
+                <button type="submit" class="btn btn-danger">
+                  <i class="bi bi-trash"></i> 删除文章
+                </button>
+              </form>
+              
+              <div>
+                <% if (post.status === 'draft') { %>
+                  <form action="/admin/posts/publish/<%= post._id %>" method="POST" class="d-inline-block">
+                    <button type="submit" class="btn btn-success">
+                      <i class="bi bi-cloud-upload"></i> 发布文章
+                    </button>
+                  </form>
+                <% } %>
+                <a href="/admin/posts/edit/<%= post._id %>" class="btn btn-primary">
+                  <i class="bi bi-pencil"></i> 编辑文章
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- 添加代码高亮库 -->
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+  <script>
+    // 初始化代码高亮
+    document.addEventListener('DOMContentLoaded', function() {
+      // 查找所有代码块并应用高亮
+      document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightBlock(block);
+      });
+    });
+  </script>
+  <style>
+    .content-preview {
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+    .content-preview img {
+      max-width: 100%;
+      height: auto;
+    }
+    /* Markdown样式调整 */
+    .markdown-body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+    }
+  </style>
+</body>
+</html> 

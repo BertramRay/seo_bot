@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成结果详情 - SEO博客管理系统</title>
+  <%- include('../partials/styles') %>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('../partials/sidebar', { currentPage: 'generate' }) %>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>生成结果详情</h2>
+          <a href="/admin/generate" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回生成页面
+          </a>
+        </div>
+        
+        <!-- 基本信息卡片 -->
+        <div class="card mb-4">
+          <div class="card-header">生成信息</div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>请求时间：</strong> <%= history.createdAt ? history.createdAt.toLocaleString() : '未知' %></p>
+                <p><strong>状态：</strong> 
+                  <% if (history.status === 'completed') { %>
+                    <span class="badge bg-success">完成</span>
+                  <% } else if (history.status === 'processing') { %>
+                    <span class="badge bg-warning text-dark">进行中</span>
+                  <% } else if (history.status === 'failed') { %>
+                    <span class="badge bg-danger">失败</span>
+                  <% } %>
+                </p>
+                <p><strong>请求生成数量：</strong> <%= history.requestedCount || 0 %></p>
+                <p><strong>成功生成数量：</strong> <%= history.successCount || 0 %></p>
+              </div>
+              <div class="col-md-6">
+                <p><strong>相关主题：</strong> 
+                  <% if (history.topics && history.topics.length > 0) { %>
+                    <% history.topics.forEach(topic => { %>
+                      <span class="badge bg-info text-dark me-1"><%= topic.name %></span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="text-muted">无相关主题</span>
+                  <% } %>
+                </p>
+                <% if (history.error) { %>
+                  <p><strong>错误信息：</strong> <span class="text-danger"><%= history.error %></span></p>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 生成的文章列表 -->
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>生成的文章</span>
+            <span class="badge bg-secondary"><%= history.posts ? history.posts.length : 0 %> 篇文章</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>标题</th>
+                  <th>主题</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (history.posts && history.posts.length > 0) { %>
+                  <% history.posts.forEach(post => { %>
+                    <tr>
+                      <td><%= post.title %></td>
+                      <td><%= post.topic ? post.topic.name : '未知主题' %></td>
+                      <td>
+                        <% if (post.status === 'published') { %>
+                          <span class="badge bg-success">已发布</span>
+                        <% } else if (post.status === 'draft') { %>
+                          <span class="badge bg-warning text-dark">草稿</span>
+                        <% } else if (post.status === 'deleted') { %>
+                          <span class="badge bg-danger">已删除</span>
+                        <% } %>
+                      </td>
+                      <td><%= post.createdAt ? post.createdAt.toLocaleString() : '未知' %></td>
+                      <td>
+                        <div class="btn-group">
+                          <a href="/admin/posts/<%= post._id %>" class="btn btn-sm btn-outline-secondary">查看</a>
+                          <a href="/admin/posts/edit/<%= post._id %>" class="btn btn-sm btn-outline-primary">编辑</a>
+                          <% if (post.status === 'published') { %>
+                            <a href="/blog/<%= post.slug %>" target="_blank" class="btn btn-sm btn-outline-info">预览</a>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center py-3">暂无生成的文章</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+</body>
+</html> 

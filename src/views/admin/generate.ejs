@@ -18,7 +18,7 @@
         <!-- 生成表单 -->
         <div class="card mb-4">
           <div class="card-header">
-            生成新文章
+            <i class="bi bi-lightning-charge me-1"></i> 生成新文章
           </div>
           <div class="card-body">
             <form action="/admin/generate" method="POST">
@@ -28,13 +28,13 @@
                   <option value="">请选择主题</option>
                   <% if (topics && topics.length > 0) { %>
                     <% topics.forEach(topic => { %>
-                      <option value="<%= topic._id %>" <%= selectedTopic && selectedTopic.toString() === topic._id.toString() ? 'selected' : '' %>>
-                        <%= topic.name %> (<%= topic.keywords.slice(0, 3).join(', ') %>...)
+                      <option value="<%= topic._id %>" <%= (selectedTopic && selectedTopic.toString() === topic._id.toString()) ? 'selected' : '' %>>
+                        <%= topic.name %>
                       </option>
-                    <% }) %>
+                    <% }); %>
                   <% } %>
                 </select>
-                <div class="form-text">选择一个主题来生成相关文章</div>
+                <div class="form-text">选择要为其生成内容的主题</div>
               </div>
               
               <div class="mb-3">
@@ -63,8 +63,8 @@
         <!-- 生成历史记录 -->
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span>最近生成记录</span>
-            <span class="badge bg-secondary"><%= history.length %> 条记录</span>
+            <span><i class="bi bi-clock-history me-1"></i> 最近生成记录</span>
+            <span class="badge bg-secondary"><%= typeof history !== 'undefined' ? history.length : 0 %> 条记录</span>
           </div>
           <div class="table-responsive">
             <table class="table">
@@ -78,11 +78,11 @@
                 </tr>
               </thead>
               <tbody>
-                <% if (history && history.length > 0) { %>
+                <% if (typeof history !== 'undefined' && history && history.length > 0) { %>
                   <% history.forEach(record => { %>
                     <tr>
                       <td><%= record.topic ? record.topic.name : '未知主题' %></td>
-                      <td><%= record.postCount || record.posts.length %></td>
+                      <td><%= record.postCount || (record.posts ? record.posts.length : 0) %></td>
                       <td>
                         <% if (record.status === 'completed') { %>
                           <span class="badge bg-success">完成</span>
@@ -92,10 +92,10 @@
                           <span class="badge bg-danger">失败</span>
                         <% } %>
                       </td>
-                      <td><%= record.createdAt.toLocaleString() %></td>
+                      <td><%= record.createdAt ? record.createdAt.toLocaleString() : '未知' %></td>
                       <td>
                         <a href="/admin/generation-results/<%= record._id %>" class="btn btn-sm btn-outline-primary">
-                          查看结果
+                          <i class="bi bi-eye"></i> 查看结果
                         </a>
                       </td>
                     </tr>

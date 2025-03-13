@@ -7,6 +7,13 @@ const { logger } = require('../utils/logger');
 const config = require('../config');
 const parser = require('cron-parser');
 const { isAuthenticated } = require('../middlewares/auth');
+const marked = require('marked');
+
+// 配置marked选项
+marked.setOptions({
+  breaks: true, // 启用换行符转换
+  gfm: true,    // 启用GitHub风格的Markdown
+});
 
 // 应用认证中间件到所有管理路由
 router.use(isAuthenticated);
@@ -178,12 +185,26 @@ router.get('/posts', async (req, res, next) => {
  */
 router.get('/topics', async (req, res, next) => {
   try {
-    const topics = await Topic.find({ user: req.user._id })
+    const userId = req.user._id;
+    let topics = await Topic.find({ user: userId })
       .sort({ priority: -1, name: 1 });
+    
+    // 为每个主题获取文章数量
+    const topicsWithCount = await Promise.all(topics.map(async (topic) => {
+      const postCount = await Post.countDocuments({ 
+        topic: topic._id, 
+        user: userId
+      });
+      
+      // 将文章数量添加到主题对象中
+      const topicObj = topic.toObject();
+      topicObj.postCount = postCount;
+      return topicObj;
+    }));
     
     res.render('admin/topics', {
       title: '管理后台 - 主题管理',
-      topics,
+      topics: topicsWithCount,
     });
   } catch (error) {
     logger.error(`主题管理页面加载出错: ${error.message}`);
@@ -195,10 +216,12 @@ router.get('/topics', async (req, res, next) => {
  * 新建主题页面
  */
 router.get('/topics/new', (req, res) => {
-  res.render('admin/topicForm', {
-    title: '管理后台 - 新建主题',
-    topic: {},
-    isNew: true,
+  res.render('admin/topicEdit', {
+    title: '创建新主题',
+    topic: null,
+    user: req.user,
+    isNewTopic: true,
+    messages: req.flash()
   });
 });
 
@@ -210,20 +233,21 @@ router.get('/topics/edit/:id', async (req, res, next) => {
     const topic = await Topic.findById(req.params.id);
     
     if (!topic) {
-      return res.status(404).render('error', {
-        title: '主题不存在',
-        message: '您要编辑的主题不存在',
-      });
+      req.flash('error', '主题不存在');
+      return res.redirect('/admin/topics');
     }
     
-    res.render('admin/topicForm', {
+    res.render('admin/topicEdit', {
       title: `管理后台 - 编辑主题: ${topic.name}`,
       topic,
-      isNew: false,
+      isNewTopic: false,
+      user: req.user,
+      messages: req.flash()
     });
   } catch (error) {
     logger.error(`编辑主题页面加载出错: ${error.message}`);
-    next(error);
+    req.flash('error', '加载主题编辑页面时出错');
+    res.redirect('/admin/topics');
   }
 });
 
@@ -240,11 +264,18 @@ router.get('/generate', async (req, res, next) => {
     const { getRecentGenerationHistory } = require('../services/contentGenerator');
     const history = await getRecentGenerationHistory(5, req.user);
     
+    // 处理从URL查询参数中获取的主题ID
+    let selectedTopic = null;
+    if (req.query.topic) {
+      selectedTopic = req.query.topic;
+    }
+    
     res.render('admin/generate', {
       title: '管理后台 - 内容生成',
       topics,
       history,
       config,
+      selectedTopic
     });
   } catch (error) {
     logger.error(`内容生成页面加载出错: ${error.message}`);
@@ -257,7 +288,7 @@ router.get('/generate', async (req, res, next) => {
  */
 router.post('/generate', async (req, res, next) => {
   try {
-    const { count, topicId } = req.body;
+    const { count, topic: topicId, publishImmediately } = req.body;
     let result;
     const startTime = Date.now();
     
@@ -266,8 +297,9 @@ router.post('/generate', async (req, res, next) => {
       const { generateContentForTopic } = require('../services/contentGenerator');
       
       try {
+        logger.info(`开始为主题 ID=${topicId} 生成内容`);
         // 为指定主题生成内容
-        const post = await generateContentForTopic(topicId, req.user);
+        const post = await generateContentForTopic(topicId, req.user, publishImmediately === 'true');
         result = [post];
       } catch (error) {
         logger.error(`为指定主题生成内容出错: ${error.message}`);
@@ -276,7 +308,7 @@ router.post('/generate', async (req, res, next) => {
     } else {
       // 批量生成内容
       const { generateAndPublishPosts } = require('../services/contentGenerator');
-      result = await generateAndPublishPosts(parseInt(count) || 1, req.user);
+      result = await generateAndPublishPosts(parseInt(count) || 1, req.user, publishImmediately === 'true');
     }
     
     const generationTime = Math.round((Date.now() - startTime) / 1000); // 计算生成时间（秒）
@@ -434,22 +466,51 @@ router.post('/topics/create', async (req, res, next) => {
 /**
  * 更新主题
  */
-router.post('/topics/update/:id', async (req, res, next) => {
+router.post('/topics/update/:id', async (req, res) => {
   try {
-    await Topic.findByIdAndUpdate(req.params.id, {
-      name: req.body.name,
-      description: req.body.description,
-      keywords: req.body.keywords,
-      categories: req.body.categories,
-      priority: req.body.priority,
-      status: req.body.status,
-      promptTemplate: req.body.promptTemplate,
-    });
+    const { name, description, keywords, categories, status, priority, promptTemplate } = req.body;
     
-    res.redirect('/admin/topics');
-  } catch (error) {
-    logger.error(`更新主题出错: ${error.message}`);
-    next(error);
+    // 检查名称是否存在
+    if (!name || name.trim() === '') {
+      req.flash('error', '主题名称不能为空');
+      return res.redirect(`/admin/topics/edit/${req.params.id}`);
+    }
+    
+    // 处理关键词和分类，将逗号分隔的字符串转为数组
+    const keywordsArray = keywords && keywords.trim() !== '' 
+      ? keywords.split(',').map(k => k.trim()).filter(k => k !== '')
+      : [];
+      
+    const categoriesArray = categories && categories.trim() !== ''
+      ? categories.split(',').map(c => c.trim()).filter(c => c !== '')
+      : [];
+    
+    // 更新主题
+    const updatedTopic = await Topic.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        description,
+        keywords: keywordsArray,
+        categories: categoriesArray,
+        status: status || 'active',
+        priority: Number(priority) || 0,
+        promptTemplate: promptTemplate || ''
+      },
+      { new: true }
+    );
+    
+    if (!updatedTopic) {
+      req.flash('error', '更新主题失败，主题不存在');
+      return res.redirect('/admin/topics');
+    }
+    
+    req.flash('success', '主题更新成功');
+    res.redirect(`/admin/topics/${req.params.id}`);
+  } catch (err) {
+    console.error('更新主题出错:', err);
+    req.flash('error', '更新主题时出错');
+    res.redirect(`/admin/topics/edit/${req.params.id}`);
   }
 });
 
@@ -578,6 +639,172 @@ router.post('/posts/update/:id', async (req, res, next) => {
   } catch (error) {
     logger.error(`更新文章出错: ${error.message}`);
     next(error);
+  }
+});
+
+/**
+ * 查看单个主题详情
+ */
+router.get('/topics/:id', async (req, res, next) => {
+  try {
+    const topic = await Topic.findById(req.params.id);
+    if (!topic) {
+      req.flash('error', '主题不存在');
+      return res.redirect('/admin/topics');
+    }
+    
+    // 获取相关的文章数量
+    const postCount = await Post.countDocuments({ topic: topic._id });
+    
+    // 获取最近的5篇文章
+    const recentPosts = await Post.find({ topic: topic._id })
+      .sort({ createdAt: -1 })
+      .limit(5);
+    
+    res.render('admin/topicDetail', {
+      title: `${topic.name} - 主题详情`,
+      topic,
+      postCount,
+      recentPosts,
+      user: req.user,
+      messages: req.flash()
+    });
+  } catch (err) {
+    console.error('加载主题详情页面出错:', err);
+    req.flash('error', '加载主题详情时出错');
+    res.redirect('/admin/topics');
+  }
+});
+
+// 创建新主题
+router.post('/topics/create', async (req, res) => {
+  try {
+    const { name, description, keywords, categories, status, priority, promptTemplate } = req.body;
+    
+    // 检查名称是否存在
+    if (!name || name.trim() === '') {
+      req.flash('error', '主题名称不能为空');
+      return res.redirect('/admin/topics/new');
+    }
+    
+    // 处理关键词和分类，将逗号分隔的字符串转为数组
+    const keywordsArray = keywords && keywords.trim() !== '' 
+      ? keywords.split(',').map(k => k.trim()).filter(k => k !== '')
+      : [];
+      
+    const categoriesArray = categories && categories.trim() !== ''
+      ? categories.split(',').map(c => c.trim()).filter(c => c !== '')
+      : [];
+    
+    // 创建新主题
+    const newTopic = await Topic.create({
+      name,
+      description: description || '',
+      keywords: keywordsArray,
+      categories: categoriesArray,
+      status: status || 'active',
+      priority: Number(priority) || 0,
+      promptTemplate: promptTemplate || ''
+    });
+    
+    req.flash('success', '主题创建成功');
+    res.redirect(`/admin/topics/${newTopic._id}`);
+  } catch (err) {
+    console.error('创建主题出错:', err);
+    req.flash('error', `创建主题失败: ${err.message}`);
+    res.redirect('/admin/topics/new');
+  }
+});
+
+// 删除主题
+router.post('/topics/:id/delete', async (req, res) => {
+  try {
+    const topic = await Topic.findById(req.params.id);
+    if (!topic) {
+      req.flash('error', '主题不存在');
+      return res.redirect('/admin/topics');
+    }
+    
+    // 删除主题
+    await Topic.findByIdAndDelete(req.params.id);
+    
+    // 更新相关文章，将主题设为null
+    await Post.updateMany(
+      { topic: req.params.id },
+      { $set: { topic: null } }
+    );
+    
+    req.flash('success', '主题已成功删除');
+    res.redirect('/admin/topics');
+  } catch (err) {
+    console.error('删除主题出错:', err);
+    req.flash('error', `删除主题失败: ${err.message}`);
+    res.redirect(`/admin/topics/${req.params.id}`);
+  }
+});
+
+/**
+ * 文章编辑页面 - 兼容旧路由
+ */
+router.get('/posts/:id/edit', (req, res) => {
+  res.redirect(`/admin/posts/edit/${req.params.id}`);
+});
+
+/**
+ * 文章详情页面
+ */
+router.get('/posts/:id', async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id).populate('topic');
+    
+    if (!post) {
+      req.flash('error', '文章不存在');
+      return res.redirect('/admin/posts');
+    }
+    
+    // 处理Markdown内容
+    if (post.content) {
+      post.content = marked.parse(post.content);
+    }
+    
+    res.render('admin/postDetail', {
+      title: `${post.title} - 文章详情`,
+      post,
+      messages: req.flash()
+    });
+  } catch (error) {
+    logger.error(`文章详情页面加载出错: ${error.message}`);
+    req.flash('error', '加载文章详情时出错');
+    res.redirect('/admin/posts');
+  }
+});
+
+/**
+ * 查看生成结果页面
+ */
+router.get('/generation-results/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // 获取生成历史记录
+    const GenerationHistory = require('../models/GenerationHistory');
+    const history = await GenerationHistory.findById(id)
+      .populate('topics')
+      .populate('posts');
+    
+    if (!history) {
+      req.flash('error', '生成记录不存在');
+      return res.redirect('/admin/generate');
+    }
+    
+    res.render('admin/generationResult', {
+      title: '生成结果详情',
+      history
+    });
+  } catch (error) {
+    logger.error(`查看生成结果页面出错: ${error.message}`);
+    req.flash('error', '加载生成结果页面时出错');
+    res.redirect('/admin/generate');
   }
 });
 

@@ -3,6 +3,13 @@ const router = express.Router();
 const Post = require('../models/Post');
 const config = require('../config');
 const { logger } = require('../utils/logger');
+const marked = require('marked');
+
+// 配置marked选项
+marked.setOptions({
+  breaks: true, // 启用换行符转换
+  gfm: true,    // 启用GitHub风格的Markdown
+});
 
 /**
  * 博客文章列表页
@@ -80,6 +87,11 @@ router.get('/:slug', async (req, res, next) => {
       });
     }
     
+    // 处理Markdown内容
+    if (post.content) {
+      post.content = marked.parse(post.content);
+    }
+    
     // 获取相关文章（同类别）
     const relatedPosts = await Post.find({
       _id: { $ne: post._id },
@@ -100,7 +112,7 @@ router.get('/:slug', async (req, res, next) => {
       canonicalUrl: `${config.blog.siteUrl}${config.blog.blogPath}/${post.slug}`,
     });
   } catch (error) {
-    logger.error(`博客文章页加载出错: ${error.message}`);
+    logger.error(`文章详情页加载出错: ${error.message}`);
     next(error);
   }
 });
@@ -180,6 +192,67 @@ router.get('/feed.xml', async (req, res, next) => {
     });
   } catch (error) {
     logger.error(`RSS Feed生成出错: ${error.message}`);
+    next(error);
+  }
+});
+
+/**
+ * 所有分类列表页
+ */
+router.get('/categories', async (req, res, next) => {
+  try {
+    // 获取所有已发布文章的分类
+    const posts = await Post.find({ status: 'published' });
+    
+    // 统计每个分类的文章数量
+    const categoriesMap = {};
+    
+    posts.forEach(post => {
+      if (post.categories && post.categories.length > 0) {
+        post.categories.forEach(category => {
+          if (!categoriesMap[category]) {
+            categoriesMap[category] = {
+              name: category,
+              count: 1
+            };
+          } else {
+            categoriesMap[category].count++;
+          }
+        });
+      }
+    });
+    
+    // 转换为数组并按文章数量排序
+    const categories = Object.values(categoriesMap).sort((a, b) => b.count - a.count);
+    
+    res.render('blog/categories', {
+      title: `所有分类 - ${config.blog.title}`,
+      categories,
+      metaTitle: `所有分类 - ${config.blog.title}`,
+      metaDescription: `浏览 ${config.blog.title} 的所有文章分类`,
+      canonicalUrl: `${config.blog.siteUrl}${config.blog.blogPath}/categories`,
+    });
+  } catch (error) {
+    logger.error(`博客分类列表页加载出错: ${error.message}`);
+    next(error);
+  }
+});
+
+/**
+ * 关于我们页面
+ */
+router.get('/about', async (req, res, next) => {
+  try {
+    res.render('blog/about', {
+      title: `关于我们 - ${config.blog.title}`,
+      siteName: config.blog.title,
+      description: config.blog.description,
+      metaTitle: `关于我们 - ${config.blog.title}`,
+      metaDescription: `了解更多关于 ${config.blog.title} 的信息`,
+      canonicalUrl: `${config.blog.siteUrl}${config.blog.blogPath}/about`,
+    });
+  } catch (error) {
+    logger.error(`博客关于页面加载出错: ${error.message}`);
     next(error);
   }
 });

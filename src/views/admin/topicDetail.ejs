@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <%- include('../partials/styles') %>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('../partials/sidebar', { currentPage: 'topics' }) %>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><%= topic.name %></h2>
+          <div>
+            <a href="/admin/topics" class="btn btn-outline-secondary me-2">
+              <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+            <a href="/admin/topics/edit/<%= topic._id %>" class="btn btn-primary">
+              <i class="bi bi-pencil"></i> 编辑主题
+            </a>
+          </div>
+        </div>
+        
+        <!-- 主题信息卡片 -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <i class="bi bi-info-circle me-1"></i> 主题信息
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <% if (topic.description) { %>
+                  <div class="mb-3">
+                    <h5>描述</h5>
+                    <p><%= topic.description %></p>
+                  </div>
+                <% } %>
+                
+                <% if (topic.keywords && topic.keywords.length > 0) { %>
+                  <div class="mb-3">
+                    <h5>关键词</h5>
+                    <div>
+                      <% topic.keywords.forEach(keyword => { %>
+                        <span class="badge bg-info text-dark me-1 mb-1"><%= keyword %></span>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% } %>
+                
+                <% if (topic.categories && topic.categories.length > 0) { %>
+                  <div class="mb-3">
+                    <h5>分类</h5>
+                    <div>
+                      <% topic.categories.forEach(category => { %>
+                        <span class="badge bg-secondary me-1 mb-1"><%= category %></span>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% } %>
+              </div>
+              
+              <div class="col-md-4">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <p><strong>状态：</strong> 
+                      <span class="badge <%= topic.status === 'active' ? 'bg-success' : 'bg-secondary' %>">
+                        <%= topic.status === 'active' ? '活跃' : '不活跃' %>
+                      </span>
+                    </p>
+                    <p><strong>优先级：</strong> <%= topic.priority || 0 %></p>
+                    <p><strong>文章数量：</strong> <%= postCount || 0 %> 篇</p>
+                    <p><strong>创建日期：</strong> <%= topic.createdAt ? topic.createdAt.toLocaleString() : '未知' %></p>
+                    <p><strong>最后更新：</strong> <%= topic.updatedAt ? topic.updatedAt.toLocaleString() : '未知' %></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 快捷操作 -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                <i class="bi bi-lightning-charge me-1"></i> 快捷操作
+              </div>
+              <div class="card-body">
+                <div class="d-grid gap-2">
+                  <a href="/admin/generate?topic=<%= topic._id %>" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> 为此主题生成文章
+                  </a>
+                  <a href="/admin/posts?topic=<%= topic._id %>" class="btn btn-outline-secondary">
+                    <i class="bi bi-list-ul"></i> 查看相关文章
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 最近文章 -->
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-text me-1"></i> 最近文章</span>
+                <span class="badge bg-secondary"><%= recentPosts ? recentPosts.length : 0 %> 篇</span>
+              </div>
+              <ul class="list-group list-group-flush">
+                <% if (recentPosts && recentPosts.length > 0) { %>
+                  <% recentPosts.forEach(post => { %>
+                    <li class="list-group-item">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <a href="/admin/posts/<%= post._id %>"><%= post.title %></a>
+                        <div>
+                          <span class="badge <%= post.status === 'published' ? 'bg-success' : 'bg-warning text-dark' %>">
+                            <%= post.status === 'published' ? '已发布' : '草稿' %>
+                          </span>
+                          <small class="text-muted ms-2"><%= post.createdAt ? post.createdAt.toLocaleString() : '未知' %></small>
+                        </div>
+                      </div>
+                    </li>
+                  <% }) %>
+                <% } else { %>
+                  <li class="list-group-item text-center py-3">暂无文章</li>
+                <% } %>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <% if (topic.promptTemplate) { %>
+          <!-- 提示词模板 -->
+          <div class="card mb-4">
+            <div class="card-header">
+              <i class="bi bi-chat-dots me-1"></i> 自定义提示词模板
+            </div>
+            <div class="card-body">
+              <pre class="bg-light p-3 rounded"><%= topic.promptTemplate %></pre>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+</body>
+</html> 

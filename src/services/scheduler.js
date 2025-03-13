@@ -125,7 +125,7 @@ const initScheduledTasks = () => {
           
           // 查找管理员用户
           const User = require('../models/User');
-          const adminUser = await User.findOne({ isAdmin: true });
+          const adminUser = await User.findOne({ role: 'admin' });
           
           if (!adminUser) {
             logger.error('找不到管理员用户，无法执行自动内容生成');
@@ -219,7 +219,7 @@ const triggerContentGeneration = async (count = config.content.postsPerBatch) =>
     
     // 查找管理员用户
     const User = require('../models/User');
-    const adminUser = await User.findOne({ isAdmin: true });
+    const adminUser = await User.findOne({ role: 'admin' });
     
     if (!adminUser) {
       logger.error('找不到管理员用户，无法执行自动内容生成');

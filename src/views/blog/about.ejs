@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="<%= locals.language || 'zh-CN' %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= metaTitle %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta name="robots" content="index, follow">
+</head>
+<body>
+  <header class="blog-header">
+    <div class="container">
+      <h1 class="blog-title"><a href="/blog"><%= siteName %></a></h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <article class="about-page">
+      <header class="page-header">
+        <h1>关于我们</h1>
+      </header>
+
+      <div class="about-content">
+        <section class="about-section">
+          <h2>网站介绍</h2>
+          <p><%= description %></p>
+          <p>我们致力于提供高质量的内容，帮助读者了解和掌握最新的知识和技能。我们的文章由专业团队撰写，确保内容的准确性和实用性。</p>
+        </section>
+
+        <section class="about-section">
+          <h2>内容领域</h2>
+          <p>我们的内容涵盖多个领域，包括：</p>
+          <ul>
+            <li>人工智能与机器学习</li>
+            <li>软件开发与编程</li>
+            <li>数据科学与分析</li>
+            <li>网络安全</li>
+            <li>云计算</li>
+            <li>区块链与加密货币</li>
+            <li>移动应用开发</li>
+          </ul>
+        </section>
+
+        <section class="about-section">
+          <h2>联系我们</h2>
+          <p>如果您有任何问题、建议或合作意向，欢迎通过以下方式联系我们：</p>
+          <p>邮箱：<a href="mailto:info@example.com">info@example.com</a></p>
+        </section>
+      </div>
+    </article>
+  </main>
+
+  <footer class="blog-footer">
+    <div class="container">
+      <p>&copy; <%= new Date().getFullYear() %> <%= siteName %>. All rights reserved.</p>
+      <p>
+        <a href="/blog">返回首页</a> |
+        <a href="/blog/categories">分类</a> |
+        <a href="/blog/about">关于我们</a> |
+        <a href="/feed.xml">RSS订阅</a> |
+        <a href="/sitemap.xml">站点地图</a>
+      </p>
+    </div>
+  </footer>
+  
+  <style>
+    .about-page {
+      background-color: #fff;
+      border-radius: 5px;
+      padding: 40px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      margin-bottom: 40px;
+    }
+    
+    .page-header {
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+      text-align: center;
+    }
+    
+    .about-section {
+      margin-bottom: 30px;
+    }
+    
+    .about-section h2 {
+      margin-bottom: 15px;
+      font-size: 24px;
+    }
+    
+    .about-section p {
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+    
+    .about-section ul {
+      list-style-type: disc;
+      margin-left: 20px;
+      margin-bottom: 15px;
+    }
+    
+    .about-section ul li {
+      margin-bottom: 8px;
+    }
+    
+    @media (max-width: 768px) {
+      .about-page {
+        padding: 25px;
+      }
+    }
+  </style>
+</body>
+</html> 

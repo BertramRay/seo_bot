@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <%- include('../partials/styles') %>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('../partials/sidebar', { currentPage: 'topics' }) %>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><%= isNewTopic ? '创建新主题' : '编辑主题' %></h2>
+          <div>
+            <a href="<%= isNewTopic ? '/admin/topics' : `/admin/topics/${topic._id}` %>" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> <%= isNewTopic ? '返回列表' : '返回主题详情' %>
+            </a>
+          </div>
+        </div>
+        
+        <% if (messages && messages.length > 0) { %>
+          <div class="alert alert-<%= messages[0].type %> alert-dismissible fade show" role="alert">
+            <%= messages[0].message %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <!-- 主题编辑表单 -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <i class="bi bi-pencil-square me-1"></i> <%= isNewTopic ? '主题信息' : `编辑: ${topic.name}` %>
+          </div>
+          <div class="card-body">
+            <form action="<%= isNewTopic ? '/admin/topics/create' : `/admin/topics/update/${topic._id}` %>" method="POST">
+              <div class="row">
+                <div class="col-md-6">
+                  <!-- 基本信息 -->
+                  <div class="mb-3">
+                    <label for="name" class="form-label">主题名称 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name" value="<%= topic ? topic.name : '' %>" required>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="description" class="form-label">描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"><%= topic && topic.description ? topic.description : '' %></textarea>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="keywords" class="form-label">关键词（用逗号分隔）</label>
+                    <input type="text" class="form-control" id="keywords" name="keywords" value="<%= topic && topic.keywords ? topic.keywords.join(',') : '' %>">
+                    <div class="form-text">多个关键词请用英文逗号分隔</div>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="categories" class="form-label">分类（用逗号分隔）</label>
+                    <input type="text" class="form-control" id="categories" name="categories" value="<%= topic && topic.categories ? topic.categories.join(',') : '' %>">
+                    <div class="form-text">多个分类请用英文逗号分隔</div>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <!-- 高级设置 -->
+                  <div class="mb-3">
+                    <label for="status" class="form-label">状态</label>
+                    <select class="form-select" id="status" name="status">
+                      <option value="active" <%= topic && topic.status === 'active' ? 'selected' : '' %>>活跃</option>
+                      <option value="inactive" <%= topic && topic.status === 'inactive' ? 'selected' : '' %>>不活跃</option>
+                    </select>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="priority" class="form-label">优先级</label>
+                    <input type="number" class="form-control" id="priority" name="priority" value="<%= topic && topic.priority ? topic.priority : 0 %>" min="0" max="10">
+                    <div class="form-text">0-10，值越高优先级越高</div>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="promptTemplate" class="form-label">自定义提示词模板（可选）</label>
+                    <textarea class="form-control" id="promptTemplate" name="promptTemplate" rows="8"><%= topic && topic.promptTemplate ? topic.promptTemplate : '' %></textarea>
+                    <div class="form-text">留空将使用系统默认提示词模板</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-flex justify-content-end mt-3">
+                <button type="reset" class="btn btn-outline-secondary me-2">重置</button>
+                <button type="submit" class="btn btn-primary">保存主题</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        <% if (!isNewTopic) { %>
+          <!-- 危险操作区域 -->
+          <div class="card border-danger mb-4">
+            <div class="card-header bg-danger text-white">
+              <i class="bi bi-exclamation-triangle me-1"></i> 危险操作
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="card-title text-danger">删除主题</h5>
+                  <p class="card-text">此操作无法撤销，请谨慎操作。删除主题不会删除相关文章，但会解除主题与文章的关联。</p>
+                </div>
+                <form action="/admin/topics/<%= topic._id %>/delete" method="POST" onsubmit="return confirm('确定要删除此主题吗？此操作无法撤销。');">
+                  <button type="submit" class="btn btn-danger">删除主题</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+</body>
+</html> 

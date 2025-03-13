@@ -182,6 +182,51 @@ a:hover {
   line-height: 1.8;
 }
 
+/* Markdown样式调整 */
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  background: transparent !important;
+  color: #333 !important;
+}
+
+.markdown-body pre {
+  background-color: #f6f8fa !important;
+  border-radius: 5px !important;
+  padding: 16px !important;
+  overflow: auto !important;
+  margin-bottom: 20px !important;
+}
+
+.markdown-body code {
+  font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace !important;
+  padding: 2px 4px !important;
+  background-color: #f6f8fa !important;
+  border-radius: 3px !important;
+}
+
+.markdown-body pre code {
+  padding: 0 !important;
+  background-color: transparent !important;
+}
+
+.markdown-body table {
+  border-collapse: collapse !important;
+  margin-bottom: 20px !important;
+  width: 100% !important;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 8px 16px !important;
+  border: 1px solid #dfe2e5 !important;
+  text-align: left !important;
+}
+
+.markdown-body table th {
+  background-color: #f6f8fa !important;
+  font-weight: 600 !important;
+}
+
 .post-body h2 {
   margin: 30px 0 15px;
   padding-bottom: 10px;

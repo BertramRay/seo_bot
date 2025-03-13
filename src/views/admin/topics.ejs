@@ -16,13 +16,16 @@
         <h2 class="mb-4">主题管理</h2>
         
         <!-- 操作按钮 -->
-        <div class="d-flex justify-content-between mb-3">
-          <a href="/admin/topics/new" class="btn btn-primary">添加新主题</a>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <a href="/admin/topics/new" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> 添加新主题
+          </a>
           
           <!-- 筛选选项 -->
-          <div class="d-flex">
+          <div class="d-flex align-items-center">
             <div class="dropdown me-2">
               <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-filter me-1"></i>
                 状态: <%= typeof status !== 'undefined' ? (status === 'all' ? '全部' : (status === 'active' ? '活跃' : '不活跃')) : '全部' %>
               </button>
               <ul class="dropdown-menu">
@@ -33,10 +36,12 @@
             </div>
             
             <!-- 搜索框 -->
-            <form action="/admin/topics" method="GET" class="d-flex">
+            <form action="/admin/topics" method="GET" class="d-flex search-component">
               <input type="hidden" name="status" value="<%= typeof status !== 'undefined' ? status : 'all' %>">
-              <input type="text" name="search" class="form-control me-2" placeholder="搜索主题..." value="<%= typeof search !== 'undefined' ? search : '' %>">
-              <button type="submit" class="btn btn-outline-secondary">搜索</button>
+              <input type="text" name="search" class="form-control" placeholder="搜索主题..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+              <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-search"></i> 搜索
+              </button>
             </form>
           </div>
         </div>
@@ -48,46 +53,66 @@
             <span class="badge bg-secondary"><%= typeof topics !== 'undefined' ? topics.length : 0 %> 个主题</span>
           </div>
           <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-striped table-hover">
               <thead>
                 <tr>
                   <th>名称</th>
                   <th>关键词</th>
                   <th>状态</th>
-                  <th>文章数</th>
-                  <th>上次更新</th>
-                  <th>操作</th>
+                  <th>文章数量</th>
+                  <th>最后更新</th>
+                  <th style="width: 180px;">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <% if (typeof topics !== 'undefined' && topics.length > 0) { %>
+                <% if (topics && topics.length > 0) { %>
                   <% topics.forEach(topic => { %>
                     <tr>
-                      <td><%= topic.name %></td>
                       <td>
-                        <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                          <%= topic.keywords.join(', ') %>
-                        </div>
+                        <a href="/admin/topics/<%= topic._id %>"><%= topic.name %></a>
                       </td>
                       <td>
-                        <span class="badge <%= topic.active ? 'bg-success' : 'bg-secondary' %>">
-                          <%= topic.active ? '活跃' : '不活跃' %>
+                        <% if (topic.keywords && topic.keywords.length > 0) { %>
+                          <% topic.keywords.slice(0, 3).forEach(keyword => { %>
+                            <span class="badge bg-info text-dark me-1"><%= keyword %></span>
+                          <% }); %>
+                          <% if (topic.keywords.length > 3) { %>
+                            <span class="badge bg-secondary">+<%= topic.keywords.length - 3 %></span>
+                          <% } %>
+                        <% } else { %>
+                          <span class="text-muted">无关键词</span>
+                        <% } %>
+                      </td>
+                      <td>
+                        <span class="badge <%= topic.status === 'active' ? 'bg-success' : 'bg-secondary' %>">
+                          <%= topic.status === 'active' ? '活跃' : '不活跃' %>
                         </span>
                       </td>
                       <td><%= topic.postCount || 0 %></td>
                       <td><%= topic.updatedAt ? topic.updatedAt.toLocaleString() : '未知' %></td>
                       <td>
-                        <div class="btn-group">
-                          <a href="/admin/topics/<%= topic._id %>" class="btn btn-sm btn-outline-secondary">查看</a>
-                          <a href="/admin/topics/<%= topic._id %>/edit" class="btn btn-sm btn-outline-primary">编辑</a>
-                          <a href="/admin/generate?topic=<%= topic._id %>" class="btn btn-sm btn-outline-success">生成文章</a>
+                        <div class="btn-group" role="group">
+                          <a href="/admin/topics/<%= topic._id %>" class="btn btn-sm btn-outline-primary" title="查看详情">
+                            <i class="bi bi-eye"></i>
+                          </a>
+                          <a href="/admin/topics/edit/<%= topic._id %>" class="btn btn-sm btn-outline-secondary" title="编辑主题">
+                            <i class="bi bi-pencil"></i>
+                          </a>
+                          <a href="/admin/generate?topic=<%= topic._id %>" class="btn btn-sm btn-success" title="生成文章">
+                            <i class="bi bi-plus-circle"></i>
+                          </a>
                         </div>
                       </td>
                     </tr>
-                  <% }) %>
+                  <% }); %>
                 <% } else { %>
                   <tr>
-                    <td colspan="6" class="text-center py-3">暂无主题</td>
+                    <td colspan="6" class="text-center py-4">
+                      <div class="text-muted mb-2">暂无主题</div>
+                      <a href="/admin/topics/new" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i> 创建第一个主题
+                      </a>
+                    </td>
                   </tr>
                 <% } %>
               </tbody>

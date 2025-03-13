@@ -103,115 +103,6 @@ const generateBlogContent = async (topic, user) => {
 };
 
 /**
- * 创建默认提示词
- * @param {Object} topic - 主题对象
- * @param {Array} previousPosts - 之前生成的文章
- * @returns {String} - 生成的提示词
- */
-const createDefaultPrompt = (topic, previousPosts = []) => {
-  // 获取系统配置的文章字数限制
-  const minWords = config.content.minWordsPerPost || 800;
-  const maxWords = config.content.maxWordsPerPost || 1500;
-  
-  // 格式化之前的文章信息
-  let previousPostsInfo = '';
-  if (previousPosts.length > 0) {
-    previousPostsInfo = `
-同主题下之前已发布的文章（你需要避免内容重复或过于相似）:
-${previousPosts.map((post, index) => `${index + 1}. 标题: "${post.title}"
-   摘要: "${post.excerpt}"`).join('\n')}
-
-请确保你的新文章与上述文章有显著区别，探索该主题的不同方面或角度。
-`;
-  }
-  
-  return `
-请为以下主题创建一篇详细的SEO优化博客文章:
-
-主题: ${topic.name}
-描述: ${topic.description || ''}
-关键词: ${topic.keywords.join(', ')}
-类别: ${topic.categories.join(', ')}
-${previousPostsInfo}
-
-写作要求:
-1. 撰写一个吸引人的标题，长度应在50-60个字符之间，自然包含主要关键词，避免生硬的关键词堆砌
-2. 创建一个引人入胜的引言，长度在100-150个字符之间，用自然的语气引导读者
-3. 文章内容应该结构清晰，分为多个部分，每部分都有明确的小标题
-4. 总内容应该在${minWords}-${maxWords}字之间，但重点是质量而非数量
-5. 文章应该体现你作为专家的观点和见解，加入个人语气和行业经验
-6. 自然地包含关键词，但应以读者体验为优先，完全避免关键词堆砌
-7. 使用日常交流的语言，包括一些口语化表达和过渡性词汇
-8. 根据需要添加实际案例、数据、列表或其他结构化内容
-9. 结尾要有一个简短的总结和自然的号召性用语，避免生硬的营销语言
-
-内容风格:
-- 写作风格应该亲切自然，就像在与读者对话
-- 适当使用反问句、感叹句等增加文章的互动性
-- 可以加入一些轻微的幽默元素或生活化的比喻
-- 在表达专业观点时应该自信但不强硬
-- 表达方式应该像经验丰富的博主或专栏作家
-
-输出格式:
-{
-  "title": "博客文章标题",
-  "excerpt": "引言/摘要",
-  "keywords": ["关键词1", "关键词2", "..."],
-  "metaTitle": "SEO元标题",
-  "metaDescription": "SEO元描述",
-  "content": "完整的博客文章内容，包括HTML标记",
-  "categories": ["分类1", "分类2"]
-}
-`;
-};
-
-/**
- * 解析生成的内容
- * @param {String} content - 生成的内容
- * @returns {Object} - 解析后的内容对象
- */
-const parseGeneratedContent = (content) => {
-  try {
-    // 查找JSON部分
-    const jsonMatch = content.match(/({[\s\S]*})/);
-    
-    if (jsonMatch && jsonMatch[0]) {
-      // 解析JSON
-      const parsed = JSON.parse(jsonMatch[0]);
-      return parsed;
-    }
-    
-    // 如果没有找到JSON格式，尝试手动解析
-    const title = content.match(/标题[：:]\s*(.*)/i)?.[1] || "生成的博客文章";
-    const excerpt = content.match(/摘要[：:]\s*([\s\S]*?)(?=内容[：:]|$)/i)?.[1] || "";
-    const mainContent = content.match(/内容[：:]\s*([\s\S]*?)(?=关键词[：:]|$)/i)?.[1] || content;
-    
-    return {
-      title,
-      excerpt: excerpt.trim(),
-      content: mainContent.trim(),
-      keywords: [],
-      metaTitle: title,
-      metaDescription: excerpt.trim().substring(0, 160),
-      categories: [],
-    };
-  } catch (error) {
-    logger.error(`解析生成内容时出错: ${error.message}`);
-    
-    // 返回基本对象
-    return {
-      title: "生成的博客文章",
-      excerpt: "这是一篇自动生成的文章",
-      content: content,
-      keywords: [],
-      metaTitle: "生成的博客文章",
-      metaDescription: "这是一篇自动生成的文章",
-      categories: [],
-    };
-  }
-};
-
-/**
  * 保存生成的文章
  * @param {Object} articleData - 文章数据
  * @param {Object} user - 用户对象
@@ -219,6 +110,13 @@ const parseGeneratedContent = (content) => {
  */
 const saveGeneratedArticle = async (articleData, user) => {
   try {
+    // 确保有摘录字段
+    if (!articleData.excerpt) {
+      // 如果没有摘录，则从内容中提取前150个字符作为摘录
+      const cleanContent = articleData.content.replace(/#{1,6}\s.*\n/g, '').replace(/\*\*/g, '').replace(/\n+/g, ' ').trim();
+      articleData.excerpt = cleanContent.substring(0, 150) + '...';
+    }
+    
     const post = new Post({
       ...articleData,
       status: config.content.autoPublish ? 'published' : 'draft',
@@ -273,11 +171,12 @@ const publishArticle = async (postId, user) => {
  * 自动生成并发布博客文章 - 支持并发执行
  * @param {Number} count - 要生成的文章数量
  * @param {Object} user - 用户对象
+ * @param {Boolean} publishImmediately - 是否立即发布
  * @returns {Promise<Array>} - 生成的文章数组
  */
-const generateAndPublishPosts = async (count = config.content.postsPerBatch, user) => {
+const generateAndPublishPosts = async (count = config.content.postsPerBatch, user, publishImmediately = true) => {
   try {
-    logger.info(`开始为用户 ${user.username} 批量生成 ${count} 篇文章`);
+    logger.info(`开始为用户 ${user.username} 批量生成 ${count} 篇文章 (立即发布: ${publishImmediately})`);
     
     // 创建历史记录
     const history = new GenerationHistory({
@@ -340,6 +239,15 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch, use
           ...content,
           topic: topic._id,
         }, user);
+        
+        // 如果需要立即发布，则发布文章
+        if (publishImmediately) {
+          await publishArticle(post._id, user);
+        }
+        
+        // 更新主题的生成计数
+        topic.postsGenerated = (topic.postsGenerated || 0) + 1;
+        await topic.save();
         
         // 更新返回结果
         const populatedPost = await Post.findById(post._id).populate('topic');
@@ -411,9 +319,10 @@ const getRecentGenerationHistory = async (limit = 5, user) => {
  * 为单个主题生成内容
  * @param {String} topicId - 主题ID
  * @param {Object} user - 用户对象
+ * @param {Boolean} publishImmediately - 是否立即发布
  * @returns {Promise<Object>} - 生成的文章
  */
-const generateContentForTopic = async (topicId, user) => {
+const generateContentForTopic = async (topicId, user, publishImmediately = true) => {
   try {
     // 查找主题
     const topic = await Topic.findOne({ 
@@ -425,7 +334,7 @@ const generateContentForTopic = async (topicId, user) => {
       throw new Error('主题不存在或无权限访问');
     }
     
-    logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成内容`);
+    logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成内容 (立即发布: ${publishImmediately})`);
     
     // 生成内容
     const content = await generateBlogContent(topic, user);
@@ -439,6 +348,11 @@ const generateContentForTopic = async (topicId, user) => {
       ...content,
       topic: topic._id,
     }, user);
+    
+    // 如果需要立即发布，则发布文章
+    if (publishImmediately) {
+      await publishArticle(post._id, user);
+    }
     
     // 更新主题的生成计数
     topic.postsGenerated = (topic.postsGenerated || 0) + 1;
@@ -455,13 +369,10 @@ const generateContentForTopic = async (topicId, user) => {
     });
     await history.save();
     
-    logger.info(`成功为用户 ${user.username} 的主题 "${topic.name}" 生成内容`);
-    
-    // 返回结果
-    return await Post.findById(post._id).populate('topic');
+    return post;
   } catch (error) {
     logger.error(`为主题生成内容时出错: ${error.message}`);
-    throw new Error(`为主题生成内容失败: ${error.message}`);
+    throw error;
   }
 };
 

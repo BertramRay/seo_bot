@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
+const flash = require('connect-flash');
 const config = require('./config');
 const blogRoutes = require('./routes/blog');
 const adminRoutes = require('./routes/admin');
@@ -44,6 +45,9 @@ app.use(session({
     autoRemove: 'native',
   }),
 }));
+
+// 初始化Flash消息中间件
+app.use(flash());
 
 // 初始化Passport
 app.use(passport.initialize());
