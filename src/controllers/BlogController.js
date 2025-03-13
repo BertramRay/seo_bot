@@ -15,16 +15,18 @@ function getTenantInfo(req) {
   // 如果请求中有租户信息，则使用租户的设置
   if (req.tenant) {
     const tenant = req.tenant;
-    const blogSettings = tenant.settings && tenant.settings.blog ? tenant.settings.blog : {};
+    const blogConfig = getBlogConfig(tenant);
     
     return {
       userId: tenant._id,
-      title: blogSettings.title || '我的SEO博客',
-      description: blogSettings.description || '自动生成的高质量SEO博客内容',
-      primaryColor: blogSettings.primaryColor || '#3498db',
-      secondaryColor: blogSettings.secondaryColor || '#2ecc71',
-      logo: blogSettings.logo || null,
-      displayName: tenant.displayName || tenant.username
+      title: blogConfig.title,
+      description: blogConfig.description,
+      primaryColor: blogConfig.theme.primaryColor,
+      secondaryColor: blogConfig.theme.secondaryColor,
+      logo: blogConfig.theme.logo,
+      displayName: tenant.displayName || tenant.username,
+      language: blogConfig.language,
+      seo: blogConfig.seo
     };
   }
   
@@ -37,7 +39,9 @@ function getTenantInfo(req) {
     primaryColor: '#3498db',
     secondaryColor: '#2ecc71',
     logo: null,
-    displayName: '系统博客'
+    displayName: '系统博客',
+    language: 'zh-CN',
+    seo: {}
   };
 }
 

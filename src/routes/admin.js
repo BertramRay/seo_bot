@@ -52,16 +52,6 @@ router.get('/seo-tools', adminController.getSeoTools);
 router.post('/refresh-sitemap', adminController.postRefreshSitemap);
 
 /**
- * 系统设置页面
- */
-router.get('/settings', adminController.getSettings);
-
-/**
- * 更新系统设置
- */
-router.post('/settings/update', adminController.postUpdateSettings);
-
-/**
  * 文章编辑页面
  */
 router.get('/posts/edit/:id', adminController.getEditPost);

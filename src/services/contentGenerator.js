@@ -5,14 +5,12 @@ const Topic = require('../models/Topic');
 const GenerationHistory = require('../models/GenerationHistory');
 const { logger } = require('../utils/logger');
 const slugify = require('slugify');
+const { getContentConfig } = require('../utils/configUtils');
 
 // 初始化OpenAI客户端
 const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
-
-// 使用配置中的模型名称
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 
 /**
  * 生成博客内容
@@ -23,6 +21,12 @@ const MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 const generateBlogContent = async (topic, user) => {
   try {
     logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成博客内容`);
+    
+    // 获取用户特定的内容生成配置
+    const contentConfig = getContentConfig(user);
+    
+    // 使用用户配置的模型或默认模型
+    const MODEL = contentConfig.model || process.env.OPENAI_MODEL || 'gpt-4o';
     
     // 获取主题的最近文章，用于避免重复
     const recentPosts = await Post.find({
@@ -48,7 +52,7 @@ const generateBlogContent = async (topic, user) => {
           role: 'system',
           content: `你是一个专业的博客内容创作者，专注于创建高质量的SEO友好内容。
 你需要为主题"${topic.name}"创建一篇原创博客文章。
-文章应该包含${config.content.minWordsPerPost}-${config.content.maxWordsPerPost}字，并且对搜索引擎友好。
+文章应该包含${contentConfig.minWordsPerPost}-${contentConfig.maxWordsPerPost}字，并且对搜索引擎友好。
 请确保内容是原创的，信息丰富的，并且对读者有价值。
 请使用Markdown格式。`
         },
@@ -174,8 +178,21 @@ const publishArticle = async (postId, user) => {
  * @param {Boolean} publishImmediately - 是否立即发布
  * @returns {Promise<Array>} - 生成的文章数组
  */
-const generateAndPublishPosts = async (count = config.content.postsPerBatch, user, publishImmediately = true) => {
+const generateAndPublishPosts = async (count, user, publishImmediately = null) => {
   try {
+    // 获取用户特定的内容生成配置
+    const contentConfig = getContentConfig(user);
+    
+    // 如果未指定是否立即发布，则使用用户配置
+    if (publishImmediately === null) {
+      publishImmediately = contentConfig.autoPublish;
+    }
+    
+    // 如果未指定生成数量，则使用用户配置或默认值
+    if (!count) {
+      count = user.settings?.blog?.schedule?.postsPerScheduledRun || config.content.postsPerBatch || 1;
+    }
+    
     logger.info(`开始为用户 ${user.username} 批量生成 ${count} 篇文章 (立即发布: ${publishImmediately})`);
     
     // 创建历史记录
@@ -322,8 +339,16 @@ const getRecentGenerationHistory = async (limit = 5, user) => {
  * @param {Boolean} publishImmediately - 是否立即发布
  * @returns {Promise<Object>} - 生成的文章
  */
-const generateContentForTopic = async (topicId, user, publishImmediately = true) => {
+const generateContentForTopic = async (topicId, user, publishImmediately = null) => {
   try {
+    // 获取用户特定的内容生成配置
+    const contentConfig = getContentConfig(user);
+    
+    // 如果未指定是否立即发布，则使用用户配置
+    if (publishImmediately === null) {
+      publishImmediately = contentConfig.autoPublish;
+    }
+    
     // 查找主题
     const topic = await Topic.findOne({ 
       _id: topicId,

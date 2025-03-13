@@ -194,7 +194,7 @@ exports.generate = apiAsyncHandler(async (req, res) => {
  * 手动刷新站点地图
  */
 exports.refreshSitemap = apiAsyncHandler(async (req, res) => {
-  const sitemapUrl = await triggerSitemapGeneration();
+  const sitemapUrl = await triggerSitemapGeneration(req.user);
   
   sendSuccess(res, { sitemapUrl }, '站点地图更新成功');
 });
@@ -203,7 +203,7 @@ exports.refreshSitemap = apiAsyncHandler(async (req, res) => {
  * 获取博客配置
  */
 exports.getBlogConfig = apiAsyncHandler(async (req, res) => {
-  const blogConfig = getBlogConfig();
+  const blogConfig = getBlogConfig(req.user);
   
   sendSuccess(res, { config: blogConfig });
 }); 

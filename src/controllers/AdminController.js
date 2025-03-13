@@ -11,7 +11,6 @@ const {
 } = require('../services/scheduler');
 const { createPagination, paginateQuery } = require('../utils/pagination');
 const { asyncHandler } = require('../utils/controllerUtils');
-const { getBlogConfig } = require('../utils/configUtils');
 const { parseMarkdown } = require('../utils/markdownUtils');
 
 const postRepository = require('../repositories/PostRepository');
@@ -57,9 +56,6 @@ exports.getDashboard = asyncHandler(async (req, res) => {
     publishedAfter: firstDayOfMonth
   });
   
-  // 获取博客配置
-  const blogConfig = getBlogConfig();
-  
   // 获取主题统计
   const topics = await topicRepository.getTopicsWithPostCount(userId);
   const totalTopics = topics.length;
@@ -70,6 +66,12 @@ exports.getDashboard = asyncHandler(async (req, res) => {
   
   // 解释CRON表达式
   const cronExplanation = explainCronExpression(cronExpression);
+  
+  // 获取用户的博客标题和网站URL
+  const blogTitle = req.user.settings?.blog?.title || 'SEO博客';
+  const siteUrl = req.user.customDomain ? `https://${req.user.customDomain}` : 
+                 req.user.subdomain ? `https://${req.user.subdomain}.${config.domain.baseDomain}` : 
+                 config.blog.siteUrl;
   
   res.render('admin/dashboard', {
     title: '管理后台 - 仪表盘',
@@ -83,8 +85,8 @@ exports.getDashboard = asyncHandler(async (req, res) => {
     topics: topics.slice(0, 5),
     cronExpression,
     cronExplanation,
-    blogTitle: blogConfig.title,
-    siteUrl: blogConfig.siteUrl
+    blogTitle,
+    siteUrl
   });
 });
 
@@ -273,14 +275,10 @@ exports.getGeneratePage = asyncHandler(async (req, res) => {
     selectedTopic = req.query.topic;
   }
   
-  // 获取博客配置
-  const blogConfig = getBlogConfig();
-  
   res.render('admin/generate', {
     title: '管理后台 - 内容生成',
     topics,
     history,
-    blogConfig,
     selectedTopic
   });
 });
@@ -330,9 +328,6 @@ exports.postGenerate = asyncHandler(async (req, res) => {
  * SEO工具页面
  */
 exports.getSeoTools = asyncHandler(async (req, res) => {
-  // 获取博客配置
-  const blogConfig = getBlogConfig();
-  
   // 获取站点地图状态
   const fs = require('fs').promises;
   const path = require('path');
@@ -345,15 +340,36 @@ exports.getSeoTools = asyncHandler(async (req, res) => {
   };
   
   try {
-    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
-    const stats = await fs.stat(sitemapPath);
+    // 检查用户特定的站点地图
+    const userDir = path.join(process.cwd(), 'public', 'users', req.user._id.toString());
+    const sitemapPath = path.join(userDir, 'sitemap.xml');
     
-    sitemapInfo = {
-      exists: true,
-      lastModified: stats.mtime,
-      size: Math.round(stats.size / 1024), // 转换为KB
-      url: `${blogConfig.siteUrl}/sitemap.xml`
-    };
+    try {
+      const stats = await fs.stat(sitemapPath);
+      
+      // 获取用户的域名
+      const hostname = req.user.customDomain ? `https://${req.user.customDomain}` : 
+                      req.user.subdomain ? `https://${req.user.subdomain}.${config.domain.baseDomain}` : 
+                      config.blog.siteUrl;
+      
+      sitemapInfo = {
+        exists: true,
+        lastModified: stats.mtime,
+        size: Math.round(stats.size / 1024), // 转换为KB
+        url: `${hostname}/sitemap.xml`
+      };
+    } catch (error) {
+      // 用户特定的站点地图不存在，检查系统站点地图
+      const systemSitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+      const stats = await fs.stat(systemSitemapPath);
+      
+      sitemapInfo = {
+        exists: true,
+        lastModified: stats.mtime,
+        size: Math.round(stats.size / 1024), // 转换为KB
+        url: `${config.blog.siteUrl}/sitemap.xml`
+      };
+    }
   } catch (error) {
     // 文件不存在，使用默认值
     logger.info('站点地图文件不存在');
@@ -361,8 +377,7 @@ exports.getSeoTools = asyncHandler(async (req, res) => {
   
   res.render('admin/seoTools', {
     title: '管理后台 - SEO工具',
-    sitemapInfo,
-    blogConfig
+    sitemapInfo
   });
 });
 
@@ -370,47 +385,12 @@ exports.getSeoTools = asyncHandler(async (req, res) => {
  * 刷新站点地图
  */
 exports.postRefreshSitemap = asyncHandler(async (req, res) => {
-  const sitemapUrl = await triggerSitemapGeneration();
+  const sitemapUrl = await triggerSitemapGeneration(req.user);
   
   res.render('admin/sitemapResult', {
     title: '管理后台 - 站点地图更新结果',
     sitemapUrl,
   });
-});
-
-/**
- * 系统设置页面
- */
-exports.getSettings = asyncHandler(async (req, res) => {
-  // 获取博客配置
-  const blogConfig = getBlogConfig();
-  
-  res.render('admin/settings', {
-    title: '管理后台 - 系统设置',
-    config: blogConfig,
-  });
-});
-
-/**
- * 更新系统设置
- */
-exports.postUpdateSettings = asyncHandler(async (req, res) => {
-  const { section } = req.body;
-  
-  // 更新配置文件
-  logger.info(`更新系统设置，部分: ${section}`);
-  
-  // 使用配置管理器保存设置
-  const { updateConfig } = require('../services/configManager');
-  const success = await updateConfig(section, req.body[section] || req.body);
-  
-  if (success) {
-    req.flash = { type: 'success', message: '设置已保存' };
-  } else {
-    req.flash = { type: 'error', message: '保存设置失败' };
-  }
-  
-  res.redirect('/admin/settings');
 });
 
 /**
@@ -675,7 +655,7 @@ exports.getGenerationResults = asyncHandler(async (req, res) => {
  */
 exports.getGenerateSitemap = async (req, res, next) => {
   try {
-    const sitemapUrl = await triggerSitemapGeneration();
+    const sitemapUrl = await triggerSitemapGeneration(req.user);
     
     res.render('admin/sitemapResult', {
       title: '管理后台 - 站点地图生成结果',
@@ -846,7 +826,31 @@ exports.postVerifyDomain = async (req, res) => {
  */
 exports.postUpdateBlogSettings = async (req, res) => {
   try {
-    const { blogTitle, blogDescription, primaryColor, secondaryColor } = req.body;
+    const { 
+      blogTitle, 
+      blogDescription, 
+      primaryColor, 
+      secondaryColor,
+      language,
+      contactEmail,
+      // 内容生成设置
+      model,
+      minWordsPerPost,
+      maxWordsPerPost,
+      autoPublish,
+      enableFeaturedImages,
+      // SEO设置
+      metaTitle,
+      metaDescription,
+      generateSitemap,
+      enableCanonical,
+      robotsTxt,
+      // 自动发布设置
+      enableScheduledGeneration,
+      generationCronExpression,
+      postsPerScheduledRun
+    } = req.body;
+    
     const User = require('../models/User');
     
     // 更新用户的博客设置
@@ -860,10 +864,41 @@ exports.postUpdateBlogSettings = async (req, res) => {
       user.settings.blog = {};
     }
     
+    // 基本设置
     user.settings.blog.title = blogTitle;
     user.settings.blog.description = blogDescription;
     user.settings.blog.primaryColor = primaryColor;
     user.settings.blog.secondaryColor = secondaryColor;
+    user.settings.blog.language = language;
+    user.settings.blog.contactEmail = contactEmail;
+    
+    // 内容生成设置
+    if (!user.settings.blog.content) {
+      user.settings.blog.content = {};
+    }
+    user.settings.blog.content.model = model;
+    user.settings.blog.content.minWordsPerPost = parseInt(minWordsPerPost, 10);
+    user.settings.blog.content.maxWordsPerPost = parseInt(maxWordsPerPost, 10);
+    user.settings.blog.content.autoPublish = autoPublish === 'on' || autoPublish === 'true';
+    user.settings.blog.content.enableFeaturedImages = enableFeaturedImages === 'on' || enableFeaturedImages === 'true';
+    
+    // SEO设置
+    if (!user.settings.blog.seo) {
+      user.settings.blog.seo = {};
+    }
+    user.settings.blog.seo.metaTitle = metaTitle;
+    user.settings.blog.seo.metaDescription = metaDescription;
+    user.settings.blog.seo.generateSitemap = generateSitemap === 'on' || generateSitemap === 'true';
+    user.settings.blog.seo.enableCanonical = enableCanonical === 'on' || enableCanonical === 'true';
+    user.settings.blog.seo.robotsTxt = robotsTxt;
+    
+    // 自动发布设置
+    if (!user.settings.blog.schedule) {
+      user.settings.blog.schedule = {};
+    }
+    user.settings.blog.schedule.enableScheduledGeneration = enableScheduledGeneration === 'on' || enableScheduledGeneration === 'true';
+    user.settings.blog.schedule.generationCronExpression = generationCronExpression;
+    user.settings.blog.schedule.postsPerScheduledRun = parseInt(postsPerScheduledRun, 10);
     
     await user.save();
     

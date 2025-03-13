@@ -3,16 +3,24 @@ const { generateAndPublishPosts } = require('./contentGenerator');
 const { generateSitemap } = require('./sitemapGenerator');
 const config = require('../config');
 const { logger } = require('../utils/logger');
+const { getScheduleConfig } = require('../utils/configUtils');
 
 // 定时任务集合
 const jobs = {};
 
 /**
  * 获取内容生成的Cron表达式
+ * @param {Object} user - 用户对象（可选）
  * @returns {String} - Cron表达式
  */
-const getContentGenerationCronExpression = () => {
-  // 根据配置设置定时频率
+const getContentGenerationCronExpression = (user = null) => {
+  // 如果提供了用户，则从用户配置中获取
+  if (user) {
+    const scheduleConfig = getScheduleConfig(user);
+    return scheduleConfig.generationCronExpression || '0 3 * * *';
+  }
+  
+  // 否则根据系统配置设置定时频率
   let cronExpression;
   
   switch (config.content.frequency) {
@@ -111,55 +119,70 @@ const setupSitemapGenerationJob = () => {
 /**
  * 初始化定时任务
  */
-const initScheduledTasks = () => {
+const initScheduledTasks = async () => {
   try {
-    // 获取内容生成的cron表达式
-    const cronExpression = getContentGenerationCronExpression();
+    // 查找所有启用了定时生成的用户
+    const User = require('../models/User');
+    const users = await User.find({
+      'settings.blog.schedule.enableScheduledGeneration': true,
+      isActive: true
+    });
     
-    // 创建内容生成的定时任务
-    const contentGenerationJob = new CronJob(
-      cronExpression,
-      async () => {
-        try {
-          logger.info('开始执行定时内容生成任务');
-          
-          // 查找管理员用户
-          const User = require('../models/User');
-          const adminUser = await User.findOne({ role: 'admin' });
-          
-          if (!adminUser) {
-            logger.error('找不到管理员用户，无法执行自动内容生成');
-            return;
+    logger.info(`找到 ${users.length} 个启用了定时生成的用户`);
+    
+    // 为每个用户创建定时任务
+    const userJobs = [];
+    
+    for (const user of users) {
+      // 获取用户的定时配置
+      const scheduleConfig = getScheduleConfig(user);
+      
+      if (!scheduleConfig.enableScheduledGeneration) {
+        continue;
+      }
+      
+      // 获取用户的cron表达式
+      const cronExpression = scheduleConfig.generationCronExpression || '0 3 * * *';
+      
+      // 创建用户的内容生成定时任务
+      const job = new CronJob(
+        cronExpression,
+        async () => {
+          try {
+            logger.info(`开始执行用户 ${user.username} 的定时内容生成任务`);
+            
+            // 生成内容
+            const postsCount = scheduleConfig.postsPerScheduledRun || 1;
+            const posts = await generateAndPublishPosts(postsCount, user);
+            
+            // 生成站点地图
+            if (posts.length > 0 && user.settings?.blog?.seo?.generateSitemap) {
+              await triggerSitemapGeneration(user);
+            }
+            
+            logger.info(`用户 ${user.username} 的定时内容生成任务完成，生成了 ${posts.length} 篇文章`);
+          } catch (error) {
+            logger.error(`用户 ${user.username} 的定时内容生成任务出错: ${error.message}`);
           }
-          
-          // 导入内容生成服务
-          const { generateAndPublishPosts } = require('./contentGenerator');
-          
-          // 生成内容
-          const posts = await generateAndPublishPosts(config.content.postsPerBatch, adminUser);
-          
-          // 生成站点地图
-          if (posts.length > 0) {
-            await triggerSitemapGeneration();
-          }
-          
-          logger.info(`定时内容生成任务完成，生成了 ${posts.length} 篇文章`);
-        } catch (error) {
-          logger.error(`定时内容生成任务出错: ${error.message}`);
-        }
-      },
-      null,
-      false,
-      'Asia/Shanghai'
-    );
+        },
+        null,
+        true,
+        'Asia/Shanghai'
+      );
+      
+      userJobs.push({
+        userId: user._id,
+        username: user.username,
+        job,
+        cronExpression
+      });
+      
+      logger.info(`为用户 ${user.username} 创建了内容生成定时任务，Cron表达式: ${cronExpression}`);
+    }
     
-    // 启动定时任务
-    contentGenerationJob.start();
-    
-    logger.info(`内容生成定时任务已启动，Cron表达式: ${cronExpression}`);
-    
+    // 返回所有创建的定时任务
     return {
-      contentGenerationJob,
+      userJobs
     };
   } catch (error) {
     logger.error(`初始化定时任务出错: ${error.message}`);
@@ -169,12 +192,17 @@ const initScheduledTasks = () => {
 
 /**
  * 手动触发站点地图生成任务
+ * @param {Object} user - 用户对象（可选）
  * @returns {Promise<String>} - 生成的站点地图URL
  */
-const triggerSitemapGeneration = async () => {
+const triggerSitemapGeneration = async (user = null) => {
   try {
-    logger.info('手动触发站点地图生成任务');
-    return await generateSitemap();
+    if (user) {
+      logger.info(`手动触发用户 ${user.username} 的站点地图生成任务`);
+    } else {
+      logger.info('手动触发系统站点地图生成任务');
+    }
+    return await generateSitemap(user);
   } catch (error) {
     logger.error(`手动触发站点地图生成任务出错: ${error.message}`);
     throw error;

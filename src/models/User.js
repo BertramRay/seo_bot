@@ -105,6 +105,73 @@ const userSchema = new mongoose.Schema(
         secondaryColor: {
           type: String,
           default: '#2ecc71'
+        },
+        // 语言设置
+        language: {
+          type: String,
+          default: 'zh-CN'
+        },
+        // 联系邮箱
+        contactEmail: {
+          type: String
+        },
+        // 内容生成设置
+        content: {
+          model: {
+            type: String,
+            default: 'gpt-4o'
+          },
+          minWordsPerPost: {
+            type: Number,
+            default: 800
+          },
+          maxWordsPerPost: {
+            type: Number,
+            default: 1500
+          },
+          autoPublish: {
+            type: Boolean,
+            default: false
+          },
+          enableFeaturedImages: {
+            type: Boolean,
+            default: true
+          }
+        },
+        // SEO设置
+        seo: {
+          metaTitle: {
+            type: String
+          },
+          metaDescription: {
+            type: String
+          },
+          generateSitemap: {
+            type: Boolean,
+            default: true
+          },
+          enableCanonical: {
+            type: Boolean,
+            default: true
+          },
+          robotsTxt: {
+            type: String
+          }
+        },
+        // 自动发布设置
+        schedule: {
+          enableScheduledGeneration: {
+            type: Boolean,
+            default: false
+          },
+          generationCronExpression: {
+            type: String,
+            default: '0 3 * * *'
+          },
+          postsPerScheduledRun: {
+            type: Number,
+            default: 1
+          }
         }
       }
     }
