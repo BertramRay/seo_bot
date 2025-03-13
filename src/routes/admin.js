@@ -2,37 +2,68 @@ const express = require('express');
 const router = express.Router();
 const Post = require('../models/Post');
 const Topic = require('../models/Topic');
-const { triggerContentGeneration, triggerSitemapGeneration } = require('../services/scheduler');
+const { triggerContentGeneration, triggerSitemapGeneration, getContentGenerationCronExpression } = require('../services/scheduler');
 const { logger } = require('../utils/logger');
 const config = require('../config');
+const parser = require('cron-parser');
+const { isAuthenticated } = require('../middlewares/auth');
+
+// 应用认证中间件到所有管理路由
+router.use(isAuthenticated);
 
 /**
  * 管理后台首页
  */
 router.get('/', async (req, res, next) => {
   try {
-    // 获取统计信息
-    const totalPosts = await Post.countDocuments();
-    const publishedPosts = await Post.countDocuments({ status: 'published' });
-    const draftPosts = await Post.countDocuments({ status: 'draft' });
-    const totalTopics = await Topic.countDocuments();
+    // 获取当前用户的统计信息
+    const userId = req.user._id;
+    
+    const totalPosts = await Post.countDocuments({ user: userId });
+    const publishedPosts = await Post.countDocuments({ user: userId, status: 'published' });
+    const draftPosts = await Post.countDocuments({ user: userId, status: 'draft' });
+    const totalTopics = await Topic.countDocuments({ user: userId });
     
     // 计算活跃主题数量
-    const activeTopics = await Topic.countDocuments({ status: 'active' });
+    const activeTopics = await Topic.countDocuments({ user: userId, status: 'active' });
     
     // 计算本月发布的文章数量
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const postsThisMonth = await Post.countDocuments({
+      user: userId,
       status: 'published',
       publishedAt: { $gte: firstDayOfMonth }
     });
     
     // 计算下次生成时间
-    const nextGeneration = '每天凌晨3点'; // 暂时硬编码，后续可以根据cron表达式计算
+    let nextGeneration = '暂无计划';
+    try {
+      // 获取内容生成的cron表达式
+      const cronExpression = getContentGenerationCronExpression();
+      
+      // 使用cron-parser解析表达式并计算下一次执行时间
+      const interval = parser.parseExpression(cronExpression, {
+        currentDate: new Date(),
+        tz: 'Asia/Shanghai'
+      });
+      
+      // 获取下一次执行时间并格式化为本地时间字符串
+      const nextDate = interval.next().toDate();
+      nextGeneration = nextDate.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      logger.error(`解析cron表达式出错: ${error.message}`);
+      nextGeneration = '解析错误';
+    }
     
     // 最近生成的文章
-    const recentPosts = await Post.find()
+    const recentPosts = await Post.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(5)
       .populate('topic');
@@ -77,7 +108,7 @@ router.get('/posts', async (req, res, next) => {
     const search = req.query.search || '';
     
     // 构建查询条件
-    const query = {};
+    const query = { user: req.user._id };
     if (status !== 'all') {
       query.status = status;
     }
@@ -134,7 +165,7 @@ router.get('/posts', async (req, res, next) => {
  */
 router.get('/topics', async (req, res, next) => {
   try {
-    const topics = await Topic.find()
+    const topics = await Topic.find({ user: req.user._id })
       .sort({ priority: -1, name: 1 });
     
     res.render('admin/topics', {
@@ -189,12 +220,12 @@ router.get('/topics/edit/:id', async (req, res, next) => {
 router.get('/generate', async (req, res, next) => {
   try {
     // 获取活跃主题
-    const topics = await Topic.find({ status: 'active' })
+    const topics = await Topic.find({ user: req.user._id, status: 'active' })
       .sort({ postsGenerated: 1, priority: -1 });
     
     // 获取最近的生成历史记录
     const { getRecentGenerationHistory } = require('../services/contentGenerator');
-    const history = await getRecentGenerationHistory(5);
+    const history = await getRecentGenerationHistory(5, req.user);
     
     res.render('admin/generate', {
       title: '管理后台 - 内容生成',
@@ -215,72 +246,32 @@ router.post('/generate', async (req, res, next) => {
   try {
     const { count, topicId } = req.body;
     let result;
+    const startTime = Date.now();
     
     if (topicId) {
-      // 生成指定主题的内容
-      const topic = await Topic.findById(topicId);
-      
-      if (!topic) {
-        return res.status(404).render('error', {
-          title: '主题不存在',
-          message: '您选择的主题不存在',
-        });
-      }
-      
-      // 导入内容生成服务
-      const { generateBlogContent, saveGeneratedArticle } = require('../services/contentGenerator');
-      
-      // 为指定主题生成内容
-      logger.info(`开始为指定主题 "${topic.name}" 生成内容`);
-      
-      // 创建生成历史记录
-      const GenerationHistory = require('../models/GenerationHistory');
-      const history = new GenerationHistory({
-        requestedCount: 1,
-        successCount: 0,
-        status: 'processing',
-        topics: [topic._id]
-      });
-      await history.save();
+      // 使用内容生成服务的单主题生成功能
+      const { generateContentForTopic } = require('../services/contentGenerator');
       
       try {
-        // 生成内容
-        const content = await generateBlogContent(topic);
-        
-        // 添加关联到主题
-        content.topic = topic._id;
-        content.categories = topic.categories;
-        
-        // 保存文章
-        const post = await saveGeneratedArticle({
-          ...content,
-          topic: topic._id,
-        });
-        
-        // 更新历史记录
-        history.successCount = 1;
-        history.status = 'completed';
-        history.posts = [post._id];
-        await history.save();
-        
-        // 返回结果
+        // 为指定主题生成内容
+        const post = await generateContentForTopic(topicId, req.user);
         result = [post];
       } catch (error) {
-        // 更新历史记录
-        history.status = 'failed';
-        history.error = error.message;
-        await history.save();
-        
+        logger.error(`为指定主题生成内容出错: ${error.message}`);
         throw error;
       }
     } else {
       // 批量生成内容
-      result = await triggerContentGeneration(parseInt(count) || 1);
+      const { generateAndPublishPosts } = require('../services/contentGenerator');
+      result = await generateAndPublishPosts(parseInt(count) || 1, req.user);
     }
+    
+    const generationTime = Math.round((Date.now() - startTime) / 1000); // 计算生成时间（秒）
     
     res.render('admin/generateResult', {
       title: '管理后台 - 内容生成结果',
       result,
+      generationTime
     });
   } catch (error) {
     logger.error(`手动触发内容生成出错: ${error.message}`);

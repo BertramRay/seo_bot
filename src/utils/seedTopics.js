@@ -1,4 +1,5 @@
 const Topic = require('../models/Topic');
+const User = require('../models/User');
 const { logger } = require('./logger');
 
 /**
@@ -8,11 +9,18 @@ const seedTopics = async () => {
   try {
     logger.info('开始创建示例主题...');
     
-    // 检查是否已有主题
-    const topicCount = await Topic.countDocuments();
+    // 查找管理员用户
+    const adminUser = await User.findOne({ role: 'admin' });
+    if (!adminUser) {
+      logger.warn('未找到管理员用户，无法创建示例主题');
+      return;
+    }
     
-    if (topicCount > 0) {
-      logger.info(`已有 ${topicCount} 个主题，跳过示例主题创建`);
+    // 检查管理员用户是否已有主题
+    const adminTopicCount = await Topic.countDocuments({ user: adminUser._id });
+    
+    if (adminTopicCount > 0) {
+      logger.info(`管理员已有 ${adminTopicCount} 个主题，跳过示例主题创建`);
       return;
     }
     
@@ -25,6 +33,7 @@ const seedTopics = async () => {
         categories: ['技术', '人工智能'],
         priority: 10,
         status: 'active',
+        user: adminUser._id,
       },
       {
         name: '健康饮食与营养指南',
@@ -33,6 +42,7 @@ const seedTopics = async () => {
         categories: ['健康', '生活'],
         priority: 8,
         status: 'active',
+        user: adminUser._id,
       },
       {
         name: '旅游攻略与目的地推荐',
@@ -41,6 +51,7 @@ const seedTopics = async () => {
         categories: ['旅游', '生活'],
         priority: 9,
         status: 'active',
+        user: adminUser._id,
       },
       {
         name: '个人理财与投资基础',
@@ -49,6 +60,7 @@ const seedTopics = async () => {
         categories: ['财经', '投资'],
         priority: 7,
         status: 'active',
+        user: adminUser._id,
       },
       {
         name: '职场技能提升指南',
@@ -57,13 +69,14 @@ const seedTopics = async () => {
         categories: ['职场', '自我提升'],
         priority: 8,
         status: 'active',
+        user: adminUser._id,
       },
     ];
     
     // 批量创建主题
     await Topic.insertMany(sampleTopics);
     
-    logger.info(`成功创建 ${sampleTopics.length} 个示例主题`);
+    logger.info(`成功为管理员创建 ${sampleTopics.length} 个示例主题`);
   } catch (error) {
     logger.error(`创建示例主题出错: ${error.message}`);
   }

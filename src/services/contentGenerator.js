@@ -4,68 +4,127 @@ const Post = require('../models/Post');
 const Topic = require('../models/Topic');
 const GenerationHistory = require('../models/GenerationHistory');
 const { logger } = require('../utils/logger');
+const slugify = require('slugify');
 
 // 初始化OpenAI客户端
 const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
 
+// 使用配置中的模型名称
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
+
 /**
  * 生成博客内容
  * @param {Object} topic - 主题对象
- * @returns {Promise<Object>} - 生成的博客文章
+ * @param {Object} user - 用户对象
+ * @returns {Promise<Object>} - 生成的内容
  */
-const generateBlogContent = async (topic) => {
+const generateBlogContent = async (topic, user) => {
   try {
-    logger.info(`开始为主题 "${topic.name}" 生成内容`);
+    logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成博客内容`);
     
-    // 创建提示词
-    const prompt = topic.promptTemplate || createDefaultPrompt(topic);
+    // 获取主题的最近文章，用于避免重复
+    const recentPosts = await Post.find({
+      topic: topic._id,
+      user: user._id
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('title content');
+    
+    // 提取最近的标题和内容
+    const recentTitles = recentPosts.map(post => post.title);
+    const recentContents = recentPosts.map(post => post.content.substring(0, 200)); // 只取前200个字符
+    
+    // 构建提示
+    const prompt = await buildPrompt(topic, recentTitles, recentContents);
     
     // 调用OpenAI API
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: MODEL,
       messages: [
         {
-          role: "system",
-          content: "你是一位专业的SEO内容创作者，你的任务是创建高质量、信息丰富且对搜索引擎友好的博客文章。"
+          role: 'system',
+          content: `你是一个专业的博客内容创作者，专注于创建高质量的SEO友好内容。
+你需要为主题"${topic.name}"创建一篇原创博客文章。
+文章应该包含${config.content.minWordsPerPost}-${config.content.maxWordsPerPost}字，并且对搜索引擎友好。
+请确保内容是原创的，信息丰富的，并且对读者有价值。
+请使用Markdown格式。`
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt
         }
       ],
       temperature: 0.7,
-      max_tokens: 3000,
     });
     
     // 解析响应
     const content = response.choices[0].message.content;
     
-    // 解析生成的内容
-    const parsed = parseGeneratedContent(content);
+    // 使用正则表达式提取标题
+    const titleMatch = content.match(/^#\s+(.+)$/m);
+    let title = titleMatch ? titleMatch[1].trim() : `${topic.name} - 新文章`;
     
-    // 更新主题统计信息
-    await Topic.findByIdAndUpdate(topic._id, {
-      $inc: { postsGenerated: 1 },
-      lastGenerated: new Date(),
+    // 如果标题太长，截断它
+    if (title.length > 100) {
+      title = title.substring(0, 97) + '...';
+    }
+    
+    // 生成slug
+    const slug = slugify(title, {
+      lower: true,
+      strict: true
     });
     
-    logger.info(`成功为主题 "${topic.name}" 生成内容`);
+    // 提取元描述（使用内容的前150个字符）
+    let metaDescription = '';
+    const contentWithoutTitle = content.replace(/^#\s+.+$/m, '').trim();
+    const firstParagraph = contentWithoutTitle.split('\n\n')[0];
+    metaDescription = firstParagraph.replace(/[#*_]/g, '').trim();
     
-    return parsed;
+    if (metaDescription.length > 160) {
+      metaDescription = metaDescription.substring(0, 157) + '...';
+    }
+    
+    // 返回生成的内容
+    return {
+      title,
+      slug,
+      content,
+      metaDescription,
+      wordCount: countWords(content),
+    };
   } catch (error) {
-    logger.error(`内容生成错误: ${error.message}`);
-    throw new Error(`内容生成失败: ${error.message}`);
+    logger.error(`生成博客内容时出错: ${error.message}`);
+    throw new Error(`生成博客内容失败: ${error.message}`);
   }
 };
 
 /**
  * 创建默认提示词
  * @param {Object} topic - 主题对象
+ * @param {Array} previousPosts - 之前生成的文章
  * @returns {String} - 生成的提示词
  */
-const createDefaultPrompt = (topic) => {
+const createDefaultPrompt = (topic, previousPosts = []) => {
+  // 获取系统配置的文章字数限制
+  const minWords = config.content.minWordsPerPost || 800;
+  const maxWords = config.content.maxWordsPerPost || 1500;
+  
+  // 格式化之前的文章信息
+  let previousPostsInfo = '';
+  if (previousPosts.length > 0) {
+    previousPostsInfo = `
+同主题下之前已发布的文章（你需要避免内容重复或过于相似）:
+${previousPosts.map((post, index) => `${index + 1}. 标题: "${post.title}"
+   摘要: "${post.excerpt}"`).join('\n')}
+
+请确保你的新文章与上述文章有显著区别，探索该主题的不同方面或角度。
+`;
+  }
+  
   return `
 请为以下主题创建一篇详细的SEO优化博客文章:
 
@@ -73,17 +132,25 @@ const createDefaultPrompt = (topic) => {
 描述: ${topic.description || ''}
 关键词: ${topic.keywords.join(', ')}
 类别: ${topic.categories.join(', ')}
+${previousPostsInfo}
 
-要求:
-1. 写一个吸引人的标题，长度应在50-60个字符之间，包含主要关键词
-2. 创建一个引人入胜的引言，长度在100-150个字符之间
-3. 将内容分为多个部分，每部分都有明确的小标题
-4. 总内容应该在1000-1500字之间
-5. 确保内容是信息丰富的，有用的，并且原创的
-6. 自然地包含关键词，避免关键词堆砌
-7. 使用通俗易懂的语言，适合目标读者
-8. 如果适用，包含列表、表格或其他结构化内容
-9. 结尾要有一个简短的总结和号召性用语
+写作要求:
+1. 撰写一个吸引人的标题，长度应在50-60个字符之间，自然包含主要关键词，避免生硬的关键词堆砌
+2. 创建一个引人入胜的引言，长度在100-150个字符之间，用自然的语气引导读者
+3. 文章内容应该结构清晰，分为多个部分，每部分都有明确的小标题
+4. 总内容应该在${minWords}-${maxWords}字之间，但重点是质量而非数量
+5. 文章应该体现你作为专家的观点和见解，加入个人语气和行业经验
+6. 自然地包含关键词，但应以读者体验为优先，完全避免关键词堆砌
+7. 使用日常交流的语言，包括一些口语化表达和过渡性词汇
+8. 根据需要添加实际案例、数据、列表或其他结构化内容
+9. 结尾要有一个简短的总结和自然的号召性用语，避免生硬的营销语言
+
+内容风格:
+- 写作风格应该亲切自然，就像在与读者对话
+- 适当使用反问句、感叹句等增加文章的互动性
+- 可以加入一些轻微的幽默元素或生活化的比喻
+- 在表达专业观点时应该自信但不强硬
+- 表达方式应该像经验丰富的博主或专栏作家
 
 输出格式:
 {
@@ -147,9 +214,10 @@ const parseGeneratedContent = (content) => {
 /**
  * 保存生成的文章
  * @param {Object} articleData - 文章数据
+ * @param {Object} user - 用户对象
  * @returns {Promise<Object>} - 保存的文章
  */
-const saveGeneratedArticle = async (articleData) => {
+const saveGeneratedArticle = async (articleData, user) => {
   try {
     const post = new Post({
       ...articleData,
@@ -157,10 +225,11 @@ const saveGeneratedArticle = async (articleData) => {
       publishedAt: config.content.autoPublish ? new Date() : null,
       isGenerated: true,
       generatedBy: 'openai',
+      user: user._id
     });
     
     await post.save();
-    logger.info(`成功保存文章: ${post.title}`);
+    logger.info(`成功为用户 ${user.username} 保存文章: ${post.title}`);
     
     return post;
   } catch (error) {
@@ -172,20 +241,26 @@ const saveGeneratedArticle = async (articleData) => {
 /**
  * 发布文章
  * @param {String} postId - 文章ID
+ * @param {Object} user - 用户对象
  * @returns {Promise<Object>} - 更新后的文章
  */
-const publishArticle = async (postId) => {
+const publishArticle = async (postId, user) => {
   try {
-    const post = await Post.findByIdAndUpdate(
-      postId,
-      {
-        status: 'published',
-        publishedAt: new Date(),
-      },
-      { new: true }
-    );
+    // 确保文章属于当前用户
+    const post = await Post.findOne({
+      _id: postId,
+      user: user._id
+    });
     
-    logger.info(`成功发布文章: ${post.title}`);
+    if (!post) {
+      throw new Error('文章不存在或无权限发布');
+    }
+    
+    post.status = 'published';
+    post.publishedAt = new Date();
+    await post.save();
+    
+    logger.info(`用户 ${user.username} 成功发布文章: ${post.title}`);
     
     return post;
   } catch (error) {
@@ -197,26 +272,31 @@ const publishArticle = async (postId) => {
 /**
  * 自动生成并发布博客文章 - 支持并发执行
  * @param {Number} count - 要生成的文章数量
+ * @param {Object} user - 用户对象
  * @returns {Promise<Array>} - 生成的文章数组
  */
-const generateAndPublishPosts = async (count = config.content.postsPerBatch) => {
+const generateAndPublishPosts = async (count = config.content.postsPerBatch, user) => {
   try {
-    logger.info(`开始批量生成 ${count} 篇文章`);
+    logger.info(`开始为用户 ${user.username} 批量生成 ${count} 篇文章`);
     
     // 创建历史记录
     const history = new GenerationHistory({
       requestedCount: count,
       successCount: 0,
-      status: 'processing'
+      status: 'processing',
+      user: user._id
     });
     await history.save();
     
     // 获取活跃主题 - 按照生成数量和优先级排序
-    const topics = await Topic.find({ status: 'active' })
+    const topics = await Topic.find({ 
+      status: 'active',
+      user: user._id
+    })
       .sort({ postsGenerated: 1, priority: -1 });
     
     if (topics.length === 0) {
-      logger.warn('没有找到活跃的主题，无法生成内容');
+      logger.warn(`没有找到用户 ${user.username} 的活跃主题，无法生成内容`);
       
       // 更新历史记录
       history.status = 'failed';
@@ -237,7 +317,7 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
       topicsToUse = topics.slice(0, count);
     }
     
-    logger.info(`找到 ${topics.length} 个活跃主题，将为 ${topicsToUse.length} 个主题生成内容`);
+    logger.info(`为用户 ${user.username} 找到 ${topics.length} 个活跃主题，将为 ${topicsToUse.length} 个主题生成内容`);
     
     // 保存使用的主题ID
     history.topics = topicsToUse.map(topic => topic._id);
@@ -246,10 +326,10 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
     // 并发生成内容
     const generationPromises = topicsToUse.map(async (topic) => {
       try {
-        logger.info(`开始为主题 "${topic.name}" 生成内容`);
+        logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成内容`);
         
         // 生成内容
-        const content = await generateBlogContent(topic);
+        const content = await generateBlogContent(topic, user);
         
         // 添加关联到主题
         content.topic = topic._id;
@@ -259,7 +339,7 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
         const post = await saveGeneratedArticle({
           ...content,
           topic: topic._id,
-        });
+        }, user);
         
         // 更新返回结果
         const populatedPost = await Post.findById(post._id).populate('topic');
@@ -267,7 +347,7 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
         // 返回结果
         return { success: true, post: populatedPost };
       } catch (topicError) {
-        logger.error(`处理主题 "${topic.name}" 时出错: ${topicError.message}`);
+        logger.error(`处理用户 ${user.username} 的主题 "${topic.name}" 时出错: ${topicError.message}`);
         return { success: false, error: topicError.message, topic };
       }
     });
@@ -286,14 +366,18 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
     history.posts = generatedPosts.map(post => post._id);
     await history.save();
     
-    logger.info(`成功生成了 ${generatedPosts.length} 篇文章`);
+    logger.info(`成功为用户 ${user.username} 生成了 ${generatedPosts.length} 篇文章`);
     
     return generatedPosts;
   } catch (error) {
     logger.error(`批量生成文章时出错: ${error.message}`);
     
     // 更新历史记录
-    const historyRecord = await GenerationHistory.findOne({ status: 'processing' }).sort({ createdAt: -1 });
+    const historyRecord = await GenerationHistory.findOne({ 
+      status: 'processing',
+      user: user._id
+    }).sort({ createdAt: -1 });
+    
     if (historyRecord) {
       historyRecord.status = 'failed';
       historyRecord.error = error.message;
@@ -307,11 +391,12 @@ const generateAndPublishPosts = async (count = config.content.postsPerBatch) => 
 /**
  * 获取最近的生成历史
  * @param {Number} limit - 返回历史记录的数量
+ * @param {Object} user - 用户对象
  * @returns {Promise<Array>} - 生成历史记录
  */
-const getRecentGenerationHistory = async (limit = 5) => {
+const getRecentGenerationHistory = async (limit = 5, user) => {
   try {
-    return await GenerationHistory.find()
+    return await GenerationHistory.find({ user: user._id })
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate('topics')
@@ -322,10 +407,135 @@ const getRecentGenerationHistory = async (limit = 5) => {
   }
 };
 
+/**
+ * 为单个主题生成内容
+ * @param {String} topicId - 主题ID
+ * @param {Object} user - 用户对象
+ * @returns {Promise<Object>} - 生成的文章
+ */
+const generateContentForTopic = async (topicId, user) => {
+  try {
+    // 查找主题
+    const topic = await Topic.findOne({ 
+      _id: topicId,
+      user: user._id
+    });
+    
+    if (!topic) {
+      throw new Error('主题不存在或无权限访问');
+    }
+    
+    logger.info(`开始为用户 ${user.username} 的主题 "${topic.name}" 生成内容`);
+    
+    // 生成内容
+    const content = await generateBlogContent(topic, user);
+    
+    // 添加关联到主题
+    content.topic = topic._id;
+    content.categories = topic.categories;
+    
+    // 保存文章
+    const post = await saveGeneratedArticle({
+      ...content,
+      topic: topic._id,
+    }, user);
+    
+    // 更新主题的生成计数
+    topic.postsGenerated = (topic.postsGenerated || 0) + 1;
+    await topic.save();
+    
+    // 创建历史记录
+    const history = new GenerationHistory({
+      requestedCount: 1,
+      successCount: 1,
+      status: 'completed',
+      topics: [topic._id],
+      posts: [post._id],
+      user: user._id
+    });
+    await history.save();
+    
+    logger.info(`成功为用户 ${user.username} 的主题 "${topic.name}" 生成内容`);
+    
+    // 返回结果
+    return await Post.findById(post._id).populate('topic');
+  } catch (error) {
+    logger.error(`为主题生成内容时出错: ${error.message}`);
+    throw new Error(`为主题生成内容失败: ${error.message}`);
+  }
+};
+
+/**
+ * 构建提示词
+ * @param {Object} topic - 主题对象
+ * @param {Array} recentTitles - 最近的文章标题
+ * @param {Array} recentContents - 最近的文章内容
+ * @returns {String} - 构建的提示词
+ */
+const buildPrompt = async (topic, recentTitles = [], recentContents = []) => {
+  // 基础提示
+  let prompt = `请为主题"${topic.name}"创建一篇原创博客文章。\n\n`;
+  
+  // 添加主题描述
+  if (topic.description) {
+    prompt += `主题描述: ${topic.description}\n\n`;
+  }
+  
+  // 添加关键词
+  if (topic.keywords && topic.keywords.length > 0) {
+    prompt += `请在文章中自然地包含以下关键词: ${topic.keywords.join(', ')}\n\n`;
+  }
+  
+  // 添加分类
+  if (topic.categories && topic.categories.length > 0) {
+    prompt += `文章分类: ${topic.categories.join(', ')}\n\n`;
+  }
+  
+  // 添加最近的文章标题，避免重复
+  if (recentTitles && recentTitles.length > 0) {
+    prompt += `请避免创建与以下标题相似的内容:\n${recentTitles.join('\n')}\n\n`;
+  }
+  
+  // 添加最近的文章内容摘要，避免重复
+  if (recentContents && recentContents.length > 0) {
+    prompt += `请避免与以下内容重复:\n${recentContents.join('\n---\n')}\n\n`;
+  }
+  
+  // 添加格式要求
+  prompt += `请按以下格式创建文章:
+1. 以Markdown格式的一级标题(#)开始，作为文章标题
+2. 添加一个简短的引言段落
+3. 使用二级标题(##)组织文章的主要部分
+4. 在适当的地方使用三级标题(###)
+5. 在文章末尾添加一个总结或结论部分
+6. 文章应该包含${config.content.minWordsPerPost}-${config.content.maxWordsPerPost}字
+
+请确保内容是原创的、信息丰富的，并且对读者有价值。`;
+  
+  return prompt;
+};
+
+/**
+ * 计算文本中的单词数
+ * @param {String} text - 要计算的文本
+ * @returns {Number} - 单词数
+ */
+const countWords = (text) => {
+  // 对于中文，我们按字符计数
+  const chineseCharCount = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+  
+  // 对于英文，我们按空格分隔计数
+  const englishWordCount = text.replace(/[\u4e00-\u9fa5]/g, '').split(/\s+/).filter(Boolean).length;
+  
+  // 中文字符按1:1计算，英文单词也按1:1计算
+  return chineseCharCount + englishWordCount;
+};
+
 module.exports = {
   generateBlogContent,
   saveGeneratedArticle,
   publishArticle,
   generateAndPublishPosts,
   getRecentGenerationHistory,
+  generateContentForTopic,
 }; 

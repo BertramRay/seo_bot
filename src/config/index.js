@@ -1,4 +1,5 @@
 require('dotenv').config();
+const authConfig = require('./auth');
 
 module.exports = {
   server: {
@@ -10,6 +11,7 @@ module.exports = {
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
+    model: process.env.OPENAI_MODEL || 'gpt-4o',
   },
   blog: {
     title: process.env.BLOG_TITLE || '我的SEO博客',
@@ -34,4 +36,5 @@ module.exports = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
   },
+  auth: authConfig
 }; 

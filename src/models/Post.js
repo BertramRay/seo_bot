@@ -68,23 +68,51 @@ const postSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    }
   },
   { timestamps: true }
 );
 
+// 创建复合索引，确保每个用户的文章slug唯一
+postSchema.index({ slug: 1, user: 1 }, { unique: true });
+
 // 创建slug前的中间件
 postSchema.pre('save', function (next) {
   if (!this.slug || this.isModified('title')) {
-    // 为中文标题生成拼音slug
-    this.slug = slugify(this.title, {
-      lower: true,
-      strict: true,
-      locale: 'zh-CN',
-    });
+    // 为标题生成更易读的slug
+    let baseSlug = '';
     
-    // 添加随机字符串确保唯一性
-    const randomString = Math.random().toString(36).substring(2, 8);
-    this.slug = `${this.slug}-${randomString}`;
+    // 根据是否有中文内容选择处理方式
+    if (/[\u4e00-\u9fa5]/.test(this.title)) {
+      // 中文标题：使用拼音转换，限制长度
+      baseSlug = slugify(this.title, {
+        lower: true,
+        strict: true,
+        locale: 'zh-CN',
+      }).substring(0, 30);
+    } else {
+      // 非中文标题：直接转换，保留更多单词
+      baseSlug = slugify(this.title, {
+        lower: true,
+        strict: true,
+        replacement: '-',
+        remove: /[*+~.()'"!:@]/g,
+      }).substring(0, 40);
+    }
+    
+    // 处理空slug（如果只包含特殊字符）
+    if (!baseSlug || baseSlug.length < 3) {
+      baseSlug = 'post';
+    }
+    
+    // 添加更短且易读的唯一标识符（例如时间戳的一部分 + 3位随机字符）
+    const timestamp = new Date().getTime().toString().slice(-6);
+    const randomChar = Math.random().toString(36).substring(2, 5);
+    this.slug = `${baseSlug}-${timestamp}${randomChar}`;
   }
   
   // 计算阅读时间（假设每分钟阅读200个字）

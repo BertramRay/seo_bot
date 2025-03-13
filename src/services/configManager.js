@@ -17,9 +17,13 @@ const updateConfig = async (section, data) => {
       return false;
     }
     
+    logger.info(`正在更新配置部分：${section}，数据：${JSON.stringify(data)}`);
+    
     // 更新内存中的配置
     Object.keys(data).forEach(key => {
       if (key in config[section]) {
+        const oldValue = config[section][key];
+        
         // 处理特殊的布尔值表单字段
         if (typeof config[section][key] === 'boolean') {
           config[section][key] = data[key] === 'on' || data[key] === 'true' || data[key] === true;
@@ -36,46 +40,70 @@ const updateConfig = async (section, data) => {
         else {
           config[section][key] = data[key];
         }
+        
+        logger.debug(`配置 ${section}.${key} 从 ${oldValue} 更新为 ${config[section][key]}`);
       }
     });
     
     // 将更改持久化到.env文件
     const dotenvPath = path.join(process.cwd(), '.env');
+    logger.info(`准备更新.env文件：${dotenvPath}`);
     
     try {
       // 读取现有的.env文件
       let envContent = await fs.readFile(dotenvPath, 'utf8');
+      logger.info(`成功读取.env文件，长度：${envContent.length}字符`);
       
       // 根据配置部分更新相应的环境变量
+      let updateCount = 0;
+      
       switch (section) {
         case 'content':
           if ('autoPublish' in data) {
             const autoPublishValue = data.autoPublish === 'on' || data.autoPublish === true || data.autoPublish === 'true';
-            updateEnvVar(envContent, 'CONTENT_AUTO_PUBLISH', autoPublishValue.toString());
+            envContent = updateEnvVar(envContent, 'CONTENT_AUTO_PUBLISH', autoPublishValue.toString());
             config.content.autoPublish = autoPublishValue;
+            updateCount++;
           }
           if ('frequency' in data) {
-            updateEnvVar(envContent, 'CONTENT_GENERATION_FREQUENCY', data.frequency);
+            envContent = updateEnvVar(envContent, 'CONTENT_GENERATION_FREQUENCY', data.frequency);
+            updateCount++;
           }
           if ('postsPerBatch' in data) {
-            updateEnvVar(envContent, 'POSTS_PER_BATCH', data.postsPerBatch);
+            envContent = updateEnvVar(envContent, 'POSTS_PER_BATCH', data.postsPerBatch);
+            updateCount++;
           }
           if ('minWordsPerPost' in data) {
-            updateEnvVar(envContent, 'MIN_WORDS_PER_POST', data.minWordsPerPost);
+            envContent = updateEnvVar(envContent, 'MIN_WORDS_PER_POST', data.minWordsPerPost);
+            updateCount++;
           }
           if ('maxWordsPerPost' in data) {
-            updateEnvVar(envContent, 'MAX_WORDS_PER_POST', data.maxWordsPerPost);
+            envContent = updateEnvVar(envContent, 'MAX_WORDS_PER_POST', data.maxWordsPerPost);
+            updateCount++;
           }
           if ('customCronExpression' in data) {
-            updateEnvVar(envContent, 'CUSTOM_CRON_EXPRESSION', data.customCronExpression);
+            envContent = updateEnvVar(envContent, 'CUSTOM_CRON_EXPRESSION', data.customCronExpression);
+            updateCount++;
           }
           break;
         
         case 'blog':
-          if ('title' in data) updateEnvVar(envContent, 'BLOG_TITLE', data.title);
-          if ('description' in data) updateEnvVar(envContent, 'BLOG_DESCRIPTION', data.description);
-          if ('siteUrl' in data) updateEnvVar(envContent, 'SITE_URL', data.siteUrl);
-          if ('blogPath' in data) updateEnvVar(envContent, 'BLOG_PATH', data.blogPath);
+          if ('title' in data) {
+            envContent = updateEnvVar(envContent, 'BLOG_TITLE', data.title);
+            updateCount++;
+          }
+          if ('description' in data) {
+            envContent = updateEnvVar(envContent, 'BLOG_DESCRIPTION', data.description);
+            updateCount++;
+          }
+          if ('siteUrl' in data) {
+            envContent = updateEnvVar(envContent, 'SITE_URL', data.siteUrl);
+            updateCount++;
+          }
+          if ('blogPath' in data) {
+            envContent = updateEnvVar(envContent, 'BLOG_PATH', data.blogPath);
+            updateCount++;
+          }
           break;
         
         case 'seo':
@@ -83,46 +111,75 @@ const updateConfig = async (section, data) => {
             const keywords = Array.isArray(data.defaultKeywords) 
               ? data.defaultKeywords.join(',') 
               : data.defaultKeywords;
-            updateEnvVar(envContent, 'DEFAULT_KEYWORDS', keywords);
+            envContent = updateEnvVar(envContent, 'DEFAULT_KEYWORDS', keywords);
+            updateCount++;
           }
-          if ('language' in data) updateEnvVar(envContent, 'LANGUAGE', data.language);
+          if ('language' in data) {
+            envContent = updateEnvVar(envContent, 'LANGUAGE', data.language);
+            updateCount++;
+          }
           if ('generateSitemap' in data) {
             const generateSitemap = data.generateSitemap === 'on' || data.generateSitemap === true || data.generateSitemap === 'true';
-            updateEnvVar(envContent, 'GENERATE_SITEMAP', generateSitemap.toString());
+            envContent = updateEnvVar(envContent, 'GENERATE_SITEMAP', generateSitemap.toString());
+            updateCount++;
           }
-          if ('sitemapFrequency' in data) updateEnvVar(envContent, 'SITEMAP_UPDATE_FREQUENCY', data.sitemapFrequency);
+          if ('sitemapFrequency' in data) {
+            envContent = updateEnvVar(envContent, 'SITEMAP_UPDATE_FREQUENCY', data.sitemapFrequency);
+            updateCount++;
+          }
           break;
         
         case 'server':
-          if ('port' in data) updateEnvVar(envContent, 'PORT', data.port);
-          if ('env' in data) updateEnvVar(envContent, 'NODE_ENV', data.env);
+          if ('port' in data) {
+            envContent = updateEnvVar(envContent, 'PORT', data.port);
+            updateCount++;
+          }
+          if ('env' in data) {
+            envContent = updateEnvVar(envContent, 'NODE_ENV', data.env);
+            updateCount++;
+          }
           break;
         
         case 'logging':
-          if ('level' in data) updateEnvVar(envContent, 'LOG_LEVEL', data.level);
+          if ('level' in data) {
+            envContent = updateEnvVar(envContent, 'LOG_LEVEL', data.level);
+            updateCount++;
+          }
           break;
         
         case 'openai':
-          if ('apiKey' in data) updateEnvVar(envContent, 'OPENAI_API_KEY', data.apiKey);
+          if ('apiKey' in data) {
+            envContent = updateEnvVar(envContent, 'OPENAI_API_KEY', data.apiKey);
+            updateCount++;
+          }
           break;
         
         case 'database':
-          if ('uri' in data) updateEnvVar(envContent, 'MONGODB_URI', data.uri);
+          if ('uri' in data) {
+            envContent = updateEnvVar(envContent, 'MONGODB_URI', data.uri);
+            updateCount++;
+          }
           break;
       }
       
       // 写回.env文件
       await fs.writeFile(dotenvPath, envContent);
-      logger.info(`成功更新配置 "${section}"`);
+      logger.info(`成功写入.env文件，更新了${updateCount}个配置项`);
       return true;
-    } catch (error) {
+    } catch (fileError) {
       // 如果.env文件不存在，则创建一个
-      logger.warn(`没有找到.env文件，创建新文件`);
-      
-      const newEnvContent = createEnvFileContent();
-      await fs.writeFile(dotenvPath, newEnvContent);
-      logger.info(`已创建新的.env文件并保存配置`);
-      return true;
+      if (fileError.code === 'ENOENT') {
+        logger.warn(`没有找到.env文件，创建新文件：${dotenvPath}`);
+        
+        const newEnvContent = createEnvFileContent();
+        await fs.writeFile(dotenvPath, newEnvContent);
+        logger.info(`已创建新的.env文件并保存配置，内容长度：${newEnvContent.length}字符`);
+        return true;
+      } else {
+        // 其他文件操作错误
+        logger.error(`访问.env文件时出错: ${fileError.message}`);
+        throw fileError;
+      }
     }
   } catch (error) {
     logger.error(`更新配置文件时出错: ${error.message}`);

@@ -2,13 +2,18 @@ const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 const morgan = require('morgan');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const passport = require('passport');
 const config = require('./config');
 const blogRoutes = require('./routes/blog');
 const adminRoutes = require('./routes/admin');
 const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth');
 const { setupCronJobs } = require('./services/scheduler');
 const { logger } = require('./utils/logger');
 const { seedTopics } = require('./utils/seedTopics');
+const { addUserToLocals } = require('./middlewares/auth');
 
 // 创建必要的目录
 const fs = require('fs');
@@ -30,7 +35,28 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// 配置会话
+app.use(session({
+  ...config.auth.session,
+  store: MongoStore.create({
+    mongoUrl: config.database.uri,
+    ttl: 14 * 24 * 60 * 60, // 14天
+    autoRemove: 'native',
+  }),
+}));
+
+// 初始化Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// 配置Passport策略
+require('./config/passport')();
+
+// 添加用户到本地变量
+app.use(addUserToLocals);
+
 // 路由设置
+app.use('/auth', authRoutes);
 app.use(config.blog.blogPath, blogRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api', apiRoutes);
@@ -63,6 +89,9 @@ mongoose
   .then(async () => {
     logger.info('成功连接到MongoDB数据库');
     
+    // 创建管理员用户（如果不存在）
+    await createAdminUser();
+    
     // 创建示例主题
     await seedTopics();
     
@@ -93,4 +122,31 @@ mongoose
   })
   .catch((err) => {
     logger.error(`数据库连接失败: ${err.message}`);
-  }); 
+  });
+
+/**
+ * 创建管理员用户（如果不存在）
+ */
+async function createAdminUser() {
+  try {
+    const User = require('./models/User');
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    
+    // 检查是否已存在管理员
+    const existingAdmin = await User.findOne({ role: 'admin' });
+    if (!existingAdmin) {
+      const admin = new User({
+        username: 'admin',
+        email: adminEmail,
+        displayName: '系统管理员',
+        role: 'admin',
+        lastLogin: new Date(),
+      });
+      
+      await admin.save();
+      logger.info(`创建了管理员用户: ${adminEmail}`);
+    }
+  } catch (error) {
+    logger.error(`创建管理员用户失败: ${error.message}`);
+  }
+} 
