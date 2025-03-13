@@ -17,13 +17,8 @@ const buildTopicQuery = (userId, options = {}) => {
   
   // 搜索功能
   if (options.search) {
-    const search = options.search;
-    query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-      { keywords: { $regex: search, $options: 'i' } },
-      { categories: { $regex: search, $options: 'i' } }
-    ];
+    // 使用MongoDB的全文搜索功能
+    query.$text = { $search: options.search };
   }
   
   return query;
@@ -47,16 +42,34 @@ exports.getUserTopics = async (userId, options = {}) => {
   
   // 构建排序
   const sort = {};
-  sort[sortBy] = sortOrder;
   
-  // 如果排序字段是name，添加第二排序字段
-  if (sortBy === 'name') {
-    sort.priority = -1;
-  } else if (sortBy === 'priority') {
-    sort.name = 1;
+  // 如果是搜索查询，优先按相关性排序
+  if (search) {
+    sort.score = { $meta: "textScore" };
+    // 添加第二排序字段
+    sort[sortBy] = sortOrder;
+  } else {
+    // 非搜索查询，按指定字段排序
+    sort[sortBy] = sortOrder;
+    
+    // 如果排序字段是name，添加第二排序字段
+    if (sortBy === 'name') {
+      sort.priority = -1;
+    } else if (sortBy === 'priority') {
+      sort.name = 1;
+    }
   }
   
-  return await Topic.find(query).sort(sort);
+  // 创建查询
+  let topicsQuery = Topic.find(query);
+  
+  // 如果是搜索查询，添加相关性分数
+  if (search) {
+    topicsQuery = topicsQuery.select({ score: { $meta: "textScore" } });
+  }
+  
+  // 应用排序并执行查询
+  return await topicsQuery.sort(sort);
 };
 
 /**

@@ -29,13 +29,23 @@ const buildQuery = (options = {}) => {
     query.keywords = options.keyword;
   }
   
+  // 处理日期过滤
+  if (options.publishedAfter) {
+    query.publishedAt = { $gte: options.publishedAfter };
+  }
+  
+  if (options.publishedBefore) {
+    if (query.publishedAt) {
+      query.publishedAt.$lte = options.publishedBefore;
+    } else {
+      query.publishedAt = { $lte: options.publishedBefore };
+    }
+  }
+  
   // 处理搜索
   if (options.search) {
-    query.$or = [
-      { title: { $regex: options.search, $options: 'i' } },
-      { content: { $regex: options.search, $options: 'i' } },
-      { keywords: { $regex: options.search, $options: 'i' } }
-    ];
+    // 使用MongoDB的全文搜索功能
+    query.$text = { $search: options.search };
   }
   
   return query;
@@ -67,10 +77,27 @@ exports.getPaginatedPosts = async (options = {}) => {
   
   // 构建排序
   const sort = {};
-  sort[sortBy] = sortOrder;
+  
+  // 如果是搜索查询，优先按相关性排序
+  if (options.search) {
+    sort.score = { $meta: "textScore" };
+    // 添加第二排序条件
+    sort[sortBy] = sortOrder;
+  } else {
+    // 非搜索查询，按指定字段排序
+    sort[sortBy] = sortOrder;
+  }
   
   // 创建查询并填充主题信息
-  const postsQuery = Post.find(query).sort(sort);
+  let postsQuery = Post.find(query);
+  
+  // 如果是搜索查询，添加相关性分数
+  if (options.search) {
+    postsQuery = postsQuery.select({ score: { $meta: "textScore" } });
+  }
+  
+  // 应用排序
+  postsQuery = postsQuery.sort(sort);
   
   // 应用分页
   const posts = await paginateQuery(postsQuery, page, limit);

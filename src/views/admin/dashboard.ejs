@@ -21,7 +21,7 @@
             <div class="card stats-card">
               <div class="card-body">
                 <h5 class="card-title">总文章数</h5>
-                <p class="card-text fs-2"><%= typeof stats !== 'undefined' && stats?.totalPosts ? stats.totalPosts : 0 %></p>
+                <p class="card-text fs-2"><%= totalPosts %></p>
               </div>
             </div>
           </div>
@@ -29,7 +29,7 @@
             <div class="card stats-card">
               <div class="card-body">
                 <h5 class="card-title">活跃主题</h5>
-                <p class="card-text fs-2"><%= typeof stats !== 'undefined' && stats?.activeTopics ? stats.activeTopics : 0 %></p>
+                <p class="card-text fs-2"><%= activeTopics %></p>
               </div>
             </div>
           </div>
@@ -37,21 +37,16 @@
             <div class="card stats-card">
               <div class="card-body">
                 <h5 class="card-title">本月发布</h5>
-                <p class="card-text fs-2"><%= typeof stats !== 'undefined' && stats?.postsThisMonth ? stats.postsThisMonth : 0 %></p>
+                <p class="card-text fs-2"><%= postsThisMonth %></p>
               </div>
             </div>
           </div>
           <div class="col-md-3">
             <div class="card stats-card">
               <div class="card-body">
-                <h5 class="card-title">下次生成</h5>
-                <p class="card-text"><%= typeof stats !== 'undefined' && stats?.nextGeneration ? stats.nextGeneration : '未设置' %></p>
-                <% if (typeof stats !== 'undefined' && stats?.nextGeneration && stats.nextGeneration.includes('(')) { %>
-                  <small class="text-muted">
-                    <i class="bi bi-info-circle"></i> Cron表达式格式: 分 时 日 月 星期<br>
-                    例如: "0 3 * * *" 表示每天凌晨3点
-                  </small>
-                <% } %>
+                <h5 class="card-title">定时生成</h5>
+                <p class="card-text"><code><%= cronExpression || '未设置' %></code></p>
+                <small class="text-muted"><%= cronExplanation %></small>
               </div>
             </div>
           </div>
