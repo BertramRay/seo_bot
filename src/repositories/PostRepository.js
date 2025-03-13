@@ -85,6 +85,16 @@ exports.getPaginatedPosts = async (options = {}) => {
 };
 
 /**
+ * 统计文章数量
+ * @param {Object} options - 查询选项
+ * @returns {Promise<number>} - 文章数量
+ */
+exports.countPosts = async (options = {}) => {
+  const query = buildQuery(options);
+  return await Post.countDocuments(query);
+};
+
+/**
  * 根据ID获取文章
  * @param {string} id - 文章ID
  * @param {boolean} populateTopic - 是否填充主题信息

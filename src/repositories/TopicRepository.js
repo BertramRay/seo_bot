@@ -2,22 +2,48 @@ const Topic = require('../models/Topic');
 const Post = require('../models/Post');
 
 /**
+ * 构建主题查询条件
+ * @param {string} userId - 用户ID
+ * @param {Object} options - 选项
+ * @returns {Object} - 查询条件
+ */
+const buildTopicQuery = (userId, options = {}) => {
+  const query = { user: userId };
+  
+  // 状态过滤
+  if (options.status) {
+    query.status = options.status;
+  }
+  
+  // 搜索功能
+  if (options.search) {
+    const search = options.search;
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { keywords: { $regex: search, $options: 'i' } },
+      { categories: { $regex: search, $options: 'i' } }
+    ];
+  }
+  
+  return query;
+}
+
+/**
  * 获取用户的所有主题
  * @param {string} userId - 用户ID
  * @param {Object} options - 选项
  * @param {string} options.status - 主题状态过滤
+ * @param {string} options.search - 搜索关键词
  * @param {string} options.sortBy - 排序字段
  * @param {number} options.sortOrder - 排序方向 (1为升序，-1为降序)
  * @returns {Promise<Array>} - 主题数组
  */
 exports.getUserTopics = async (userId, options = {}) => {
-  const { status, sortBy = 'priority', sortOrder = -1 } = options;
+  const { status, sortBy = 'priority', sortOrder = -1, search } = options;
   
   // 构建查询
-  const query = { user: userId };
-  if (status) {
-    query.status = status;
-  }
+  const query = buildTopicQuery(userId, { status, search });
   
   // 构建排序
   const sort = {};

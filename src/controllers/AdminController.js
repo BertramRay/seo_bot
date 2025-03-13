@@ -10,6 +10,14 @@ const {
   getContentGenerationCronExpression 
 } = require('../services/scheduler');
 const { createPagination, paginateQuery } = require('../utils/pagination');
+const { asyncHandler } = require('../utils/controllerUtils');
+const { getBlogConfig } = require('../utils/configUtils');
+const { parseMarkdown } = require('../utils/markdownUtils');
+
+const postRepository = require('../repositories/PostRepository');
+const topicRepository = require('../repositories/TopicRepository');
+const postService = require('../services/postService');
+const topicService = require('../services/topicService');
 
 // 配置marked选项
 marked.setOptions({
@@ -20,100 +28,53 @@ marked.setOptions({
 /**
  * 管理后台首页
  */
-exports.getDashboard = async (req, res, next) => {
+exports.getDashboard = asyncHandler(async (req, res) => {
+  // 获取当前用户的统计信息
+  const userId = req.user._id;
+  
+  // 使用仓库获取统计数据
+  const options = { userId };
+  
+  const { posts: recentPosts } = await postRepository.getPaginatedPosts({
+    ...options,
+    limit: 5,
+    sortBy: 'createdAt'
+  });
+  
+  // 统计数据
+  const totalPosts = await postRepository.countPosts(options);
+  const publishedPosts = await postRepository.countPosts({ ...options, status: 'published' });
+  const draftPosts = await postRepository.countPosts({ ...options, status: 'draft' });
+  
+  // 获取博客配置
+  const blogConfig = getBlogConfig();
+  
+  // 获取主题统计
+  const topics = await topicRepository.getTopicsWithPostCount(userId);
+  const totalTopics = topics.length;
+  
+  // 解析定时任务下次运行时间
+  let nextRun = '暂未设置';
   try {
-    // 获取当前用户的统计信息
-    const userId = req.user._id;
-    
-    const totalPosts = await Post.countDocuments({ user: userId });
-    const publishedPosts = await Post.countDocuments({ user: userId, status: 'published' });
-    const draftPosts = await Post.countDocuments({ user: userId, status: 'draft' });
-    const totalTopics = await Topic.countDocuments({ user: userId });
-    
-    // 计算活跃主题数量
-    const activeTopics = await Topic.countDocuments({ user: userId, status: 'active' });
-    
-    // 计算本月发布的文章数量
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const postsThisMonth = await Post.countDocuments({
-      user: userId,
-      status: 'published',
-      publishedAt: { $gte: firstDayOfMonth }
-    });
-    
-    // 计算下次生成时间
-    let nextGeneration = '暂无计划';
-    let cronExpressionText = '';
-    try {
-      // 获取内容生成的cron表达式
-      const cronExpression = getContentGenerationCronExpression();
-      cronExpressionText = cronExpression;
-      
-      // 确保cron-parser已正确导入
-      if (!parser || typeof parser.parseExpression !== 'function') {
-        logger.error('cron-parser模块未正确导入或parseExpression不是函数');
-        nextGeneration = `配置错误 (${cronExpression})`;
-      } else {
-        try {
-          // 使用cron-parser解析表达式并计算下一次执行时间
-          const interval = parser.parseExpression(cronExpression, {
-            currentDate: new Date(),
-            tz: 'Asia/Shanghai'
-          });
-          
-          // 获取下一次执行时间并格式化为本地时间字符串
-          const nextDate = interval.next().toDate();
-          nextGeneration = nextDate.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        } catch (parseError) {
-          logger.error(`解析cron表达式出错: ${parseError.message}`);
-          nextGeneration = `表达式无效 (${cronExpression})`;
-        }
-      }
-    } catch (error) {
-      logger.error(`计算下次生成时间出错: ${error.message}`);
-      nextGeneration = `计算错误 (${cronExpressionText || '未知'})`;
-    }
-    
-    // 最近生成的文章
-    const recentPosts = await Post.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate('topic');
-    
-    // 格式化最近文章信息
-    const formattedRecentPosts = recentPosts.map(post => ({
-      _id: post._id,
-      title: post.title,
-      url: `/blog/${post.slug || post._id}`,
-      publishDate: post.publishedAt ? new Date(post.publishedAt).toLocaleString('zh-CN') : '未发布',
-      status: post.status
-    }));
-    
-    res.render('admin/dashboard', {
-      title: '管理后台 - 仪表盘',
-      stats: {
-        totalPosts,
-        publishedPosts,
-        draftPosts,
-        totalTopics,
-        activeTopics,
-        postsThisMonth,
-        nextGeneration
-      },
-      recentPosts: formattedRecentPosts,
-    });
+    const interval = parser.parseExpression(getContentGenerationCronExpression());
+    nextRun = interval.next().toDate();
   } catch (error) {
-    logger.error(`管理后台首页加载出错: ${error.message}`);
-    next(error);
+    logger.error(`解析CRON表达式出错: ${error.message}`);
   }
-};
+  
+  res.render('admin/dashboard', {
+    title: '管理后台 - 仪表盘',
+    totalPosts,
+    publishedPosts,
+    draftPosts,
+    totalTopics,
+    recentPosts,
+    topics: topics.slice(0, 5),
+    nextRun,
+    blogTitle: blogConfig.title,
+    siteUrl: blogConfig.siteUrl
+  });
+});
 
 /**
  * 文章管理页面
