@@ -1,13 +1,56 @@
 require('dotenv').config();
 const authConfig = require('./auth');
 
+// 根据环境确定数据库名称
+function getDatabaseName() {
+  const env = process.env.NODE_ENV || 'development';
+  const baseDbName = process.env.DB_NAME || 'seo_bot';
+  
+  switch (env) {
+    case 'production':
+      return `${baseDbName}_prod`;
+    case 'test':
+      return `${baseDbName}_test`;
+    case 'staging':
+      return `${baseDbName}_staging`;
+    default:
+      return `${baseDbName}_dev`;
+  }
+}
+
+// 构建MongoDB URI
+function buildMongoUri() {
+  const baseUri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+  
+  // 检查URI是否已经包含数据库名称
+  if (baseUri.includes('?')) {
+    // URI包含查询参数
+    const [uri, params] = baseUri.split('?');
+    if (uri.split('/').length > 3) {
+      // URI已经包含数据库名称，直接返回
+      return baseUri;
+    }
+    // URI不包含数据库名称，添加数据库名称
+    return `${uri}/${getDatabaseName()}?${params}`;
+  } else {
+    // URI不包含查询参数
+    if (baseUri.split('/').length > 3) {
+      // URI已经包含数据库名称，直接返回
+      return baseUri;
+    }
+    // URI不包含数据库名称，添加数据库名称
+    return `${baseUri}/${getDatabaseName()}`;
+  }
+}
+
 module.exports = {
   server: {
     port: process.env.PORT || 3000,
     env: process.env.NODE_ENV || 'development',
   },
   database: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/seo_bot',
+    uri: buildMongoUri(),
+    name: getDatabaseName(),
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,

@@ -95,7 +95,7 @@ app.use((err, req, res, next) => {
 mongoose
   .connect(config.database.uri)
   .then(async () => {
-    logger.info('成功连接到MongoDB数据库');
+    logger.info(`成功连接到MongoDB数据库: ${config.database.name}`);
     
     // 创建管理员用户（如果不存在）
     await createAdminUser();
