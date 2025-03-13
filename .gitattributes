@@ -1,0 +1,45 @@
+# 设置默认行为，以防人们没有设置core.autocrlf
+* text=auto
+
+# 明确声明应该被标准化的文本文件
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.json text
+*.md text
+*.css text
+*.scss text
+*.html text
+*.ejs text
+*.yml text
+*.yaml text
+*.xml text
+*.svg text
+*.txt text
+*.ini text
+*.inc text
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# 声明二进制文件，不应该被修改
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+
+# 排除构建输出目录
+dist/* -text
+build/* -text
+
+# 排除第三方库
+node_modules/* -text 
