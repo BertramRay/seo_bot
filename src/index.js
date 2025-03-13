@@ -15,6 +15,7 @@ const { setupCronJobs } = require('./services/scheduler');
 const { logger } = require('./utils/logger');
 const { seedTopics } = require('./utils/seedTopics');
 const { addUserToLocals } = require('./middlewares/auth');
+const { resolveTenant } = require('./middlewares/tenantResolver');
 
 // 创建必要的目录
 const fs = require('fs');
@@ -58,6 +59,9 @@ require('./config/passport')();
 
 // 添加用户到本地变量
 app.use(addUserToLocals);
+
+// 添加租户解析中间件
+app.use(resolveTenant);
 
 // 路由设置
 app.use('/auth', authRoutes);

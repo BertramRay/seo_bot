@@ -45,6 +45,37 @@ const userSchema = new mongoose.Schema(
       default: true,
       index: true
     },
+    // 域名相关字段
+    subdomain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      sparse: true,
+      unique: true,
+      index: true,
+      match: [/^[a-z0-9](?:[a-z0-9\-]{1,61}[a-z0-9])?$/, '子域名格式不正确']
+    },
+    customDomain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      sparse: true,
+      unique: true,
+      index: true
+    },
+    domainStatus: {
+      type: String,
+      enum: ['pending', 'active', 'failed', 'inactive'],
+      default: 'inactive'
+    },
+    domainVerifiedAt: {
+      type: Date
+    },
+    sslStatus: {
+      type: String,
+      enum: ['pending', 'active', 'failed', 'inactive'],
+      default: 'inactive'
+    },
     settings: {
       theme: {
         type: String,
@@ -53,6 +84,28 @@ const userSchema = new mongoose.Schema(
       notifications: {
         type: Boolean,
         default: true,
+      },
+      // 博客设置
+      blog: {
+        title: {
+          type: String,
+          default: '我的SEO博客'
+        },
+        description: {
+          type: String,
+          default: '自动生成的高质量SEO博客内容'
+        },
+        logo: {
+          type: String
+        },
+        primaryColor: {
+          type: String,
+          default: '#3498db'
+        },
+        secondaryColor: {
+          type: String,
+          default: '#2ecc71'
+        }
       }
     }
   },

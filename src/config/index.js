@@ -36,5 +36,13 @@ module.exports = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
   },
-  auth: authConfig
+  auth: authConfig,
+  // 域名相关配置
+  domain: {
+    baseDomain: process.env.BASE_DOMAIN || 'bertyblog.link',
+    railwayDomain: process.env.RAILWAY_DOMAIN || 'railway.app',
+    verificationInterval: parseInt(process.env.DOMAIN_VERIFICATION_INTERVAL || '30', 10), // 分钟
+    maxVerificationRetries: parseInt(process.env.MAX_VERIFICATION_RETRIES || '5', 10),
+    dnsProvider: process.env.DNS_PROVIDER || 'cloudflare',
+  }
 }; 

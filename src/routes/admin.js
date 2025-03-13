@@ -128,4 +128,29 @@ router.get('/generation-results/:id', adminController.getGenerationResults);
  */
 router.get('/sitemap/generate', adminController.getGenerateSitemap);
 
+/**
+ * 域名设置页面
+ */
+router.get('/domain-settings', adminController.getDomainSettings);
+
+/**
+ * 更新子域名
+ */
+router.post('/domain-settings/update-subdomain', adminController.postUpdateSubdomain);
+
+/**
+ * 更新自定义域名
+ */
+router.post('/domain-settings/update-custom-domain', adminController.postUpdateCustomDomain);
+
+/**
+ * 验证域名
+ */
+router.post('/domain-settings/verify-domain', adminController.postVerifyDomain);
+
+/**
+ * 更新博客设置
+ */
+router.post('/domain-settings/update-blog-settings', adminController.postUpdateBlogSettings);
+
 module.exports = router; 

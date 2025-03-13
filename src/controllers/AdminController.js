@@ -685,4 +685,192 @@ exports.getGenerateSitemap = async (req, res, next) => {
     logger.error(`生成站点地图出错: ${error.message}`);
     next(error);
   }
+};
+
+/**
+ * 获取域名设置页面
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ */
+exports.getDomainSettings = async (req, res) => {
+  try {
+    const DomainVerifier = require('../services/domainVerifier');
+    const config = require('../config');
+    
+    // 获取当前用户
+    const user = req.user;
+    
+    // 获取子域名和自定义域名的状态
+    const subdomainStatus = user.subdomain ? {
+      domain: `${user.subdomain}.${config.domain.baseDomain}`,
+      status: user.domainStatus,
+      verifiedAt: user.domainVerifiedAt,
+      sslStatus: user.sslStatus
+    } : null;
+    
+    const customDomainStatus = user.customDomain ? {
+      domain: user.customDomain,
+      status: user.domainStatus,
+      verifiedAt: user.domainVerifiedAt,
+      sslStatus: user.sslStatus
+    } : null;
+    
+    // 生成DNS配置指南
+    let dnsGuide = null;
+    if (user.customDomain) {
+      dnsGuide = DomainVerifier.generateDnsGuide(user.customDomain, true);
+    } else if (user.subdomain) {
+      dnsGuide = DomainVerifier.generateDnsGuide(user.subdomain, false);
+    }
+    
+    // 渲染域名设置页面
+    res.render('admin/domain-settings', {
+      title: '域名设置',
+      user,
+      subdomainStatus,
+      customDomainStatus,
+      dnsGuide,
+      baseDomain: config.domain.baseDomain,
+      railwayDomain: config.domain.railwayDomain,
+      messages: req.flash()
+    });
+  } catch (error) {
+    req.flash('error', `获取域名设置失败: ${error.message}`);
+    res.redirect('/admin');
+  }
+};
+
+/**
+ * 更新子域名
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ */
+exports.postUpdateSubdomain = async (req, res) => {
+  try {
+    const { subdomain } = req.body;
+    const DomainVerifier = require('../services/domainVerifier');
+    const User = require('../models/User');
+    
+    // 验证子域名格式
+    const subdomainRegex = /^[a-z0-9](?:[a-z0-9\-]{1,61}[a-z0-9])?$/;
+    if (!subdomainRegex.test(subdomain)) {
+      req.flash('error', '子域名格式不正确，只能包含小写字母、数字和连字符，不能以连字符开头或结尾');
+      return res.redirect('/admin/domain-settings');
+    }
+    
+    // 检查子域名是否已被使用
+    const existingUser = await User.findOne({ subdomain });
+    if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+      req.flash('error', '该子域名已被使用，请选择其他子域名');
+      return res.redirect('/admin/domain-settings');
+    }
+    
+    // 安排子域名验证
+    await DomainVerifier.scheduleVerification(req.user._id, subdomain, false);
+    
+    req.flash('success', '子域名设置已更新，正在验证中');
+    res.redirect('/admin/domain-settings');
+  } catch (error) {
+    req.flash('error', `更新子域名失败: ${error.message}`);
+    res.redirect('/admin/domain-settings');
+  }
+};
+
+/**
+ * 更新自定义域名
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ */
+exports.postUpdateCustomDomain = async (req, res) => {
+  try {
+    const { customDomain } = req.body;
+    const DomainVerifier = require('../services/domainVerifier');
+    const User = require('../models/User');
+    
+    // 验证域名格式
+    const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/;
+    if (!domainRegex.test(customDomain)) {
+      req.flash('error', '域名格式不正确');
+      return res.redirect('/admin/domain-settings');
+    }
+    
+    // 检查域名是否已被使用
+    const existingUser = await User.findOne({ customDomain });
+    if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+      req.flash('error', '该域名已被使用，请选择其他域名');
+      return res.redirect('/admin/domain-settings');
+    }
+    
+    // 安排自定义域名验证
+    await DomainVerifier.scheduleVerification(req.user._id, customDomain, true);
+    
+    req.flash('success', '自定义域名设置已更新，请按照DNS配置指南进行设置，然后点击验证按钮');
+    res.redirect('/admin/domain-settings');
+  } catch (error) {
+    req.flash('error', `更新自定义域名失败: ${error.message}`);
+    res.redirect('/admin/domain-settings');
+  }
+};
+
+/**
+ * 验证域名
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ */
+exports.postVerifyDomain = async (req, res) => {
+  try {
+    const { type } = req.body;
+    const DomainVerifier = require('../services/domainVerifier');
+    
+    // 验证域名
+    const isCustomDomain = type === 'custom';
+    const success = await DomainVerifier.verifyDomain(req.user._id, isCustomDomain);
+    
+    if (success) {
+      req.flash('success', '域名验证成功');
+    } else {
+      req.flash('error', '域名验证失败，请检查DNS配置');
+    }
+    
+    res.redirect('/admin/domain-settings');
+  } catch (error) {
+    req.flash('error', `域名验证失败: ${error.message}`);
+    res.redirect('/admin/domain-settings');
+  }
+};
+
+/**
+ * 更新博客设置
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ */
+exports.postUpdateBlogSettings = async (req, res) => {
+  try {
+    const { blogTitle, blogDescription, primaryColor, secondaryColor } = req.body;
+    const User = require('../models/User');
+    
+    // 更新用户的博客设置
+    const user = await User.findById(req.user._id);
+    
+    // 确保settings.blog对象存在
+    if (!user.settings) {
+      user.settings = {};
+    }
+    if (!user.settings.blog) {
+      user.settings.blog = {};
+    }
+    
+    user.settings.blog.title = blogTitle;
+    user.settings.blog.description = blogDescription;
+    user.settings.blog.primaryColor = primaryColor;
+    user.settings.blog.secondaryColor = secondaryColor;
+    
+    await user.save();
+    
+    req.flash('success', '博客设置已更新');
+    res.redirect('/admin/domain-settings');
+  } catch (error) {
+    req.flash('error', `更新博客设置失败: ${error.message}`);
+    res.redirect('/admin/domain-settings');
+  }
 }; 

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - SEO博客管理系统</title>
+  <%- include('../partials/styles') %>
+  <style>
+    .status-badge {
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+    }
+    .status-pending {
+      background-color: #ffc107;
+      color: #212529;
+    }
+    .status-active {
+      background-color: #28a745;
+      color: #fff;
+    }
+    .status-failed {
+      background-color: #dc3545;
+      color: #fff;
+    }
+    .status-inactive {
+      background-color: #6c757d;
+      color: #fff;
+    }
+    .dns-guide {
+      background-color: #f8f9fa;
+      border-left: 4px solid #17a2b8;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .dns-guide ol {
+      padding-left: 1.5rem;
+    }
+    .color-preview {
+      width: 30px;
+      height: 30px;
+      display: inline-block;
+      border: 1px solid #ced4da;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('../partials/sidebar', { currentPage: 'domain-settings' }) %>
+      
+      <!-- 主内容区 -->
+      <div class="col-md-10 content">
+        <h2 class="mb-4">域名设置</h2>
+        
+        <% if (messages.error && messages.error.length > 0) { %>
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <%= messages.error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <% if (messages.success && messages.success.length > 0) { %>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <%= messages.success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <!-- 设置选项卡 -->
+        <div class="card">
+          <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="domainTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="subdomain-tab" data-bs-toggle="tab" data-bs-target="#subdomain" type="button" role="tab" aria-controls="subdomain" aria-selected="true">子域名设置</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="custom-domain-tab" data-bs-toggle="tab" data-bs-target="#custom-domain" type="button" role="tab" aria-controls="custom-domain" aria-selected="false">自定义域名</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="blog-settings-tab" data-bs-toggle="tab" data-bs-target="#blog-settings" type="button" role="tab" aria-controls="blog-settings" aria-selected="false">博客设置</button>
+              </li>
+            </ul>
+          </div>
+          <div class="card-body">
+            <div class="tab-content" id="domainTabContent">
+              <!-- 子域名设置 -->
+              <div class="tab-pane fade show active" id="subdomain" role="tabpanel" aria-labelledby="subdomain-tab">
+                <div class="row">
+                  <div class="col-md-6">
+                    <form action="/admin/domain-settings/update-subdomain" method="POST">
+                      <div class="mb-3">
+                        <label for="subdomain" class="form-label">子域名</label>
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="subdomain" name="subdomain" placeholder="yourname" value="<%= user.subdomain || '' %>" required>
+                          <span class="input-group-text">.<%= baseDomain %></span>
+                        </div>
+                        <div class="form-text">子域名只能包含小写字母、数字和连字符，不能以连字符开头或结尾，长度为3-63个字符。</div>
+                      </div>
+                      <button type="submit" class="btn btn-primary">保存</button>
+                    </form>
+                  </div>
+                  <div class="col-md-6">
+                    <% if (subdomainStatus) { %>
+                      <div class="card">
+                        <div class="card-header">
+                          子域名状态
+                          <span class="badge status-badge status-<%= subdomainStatus.status %>">
+                            <%= {
+                              'pending': '验证中',
+                              'active': '已激活',
+                              'failed': '验证失败',
+                              'inactive': '未激活'
+                            }[subdomainStatus.status] %>
+                          </span>
+                        </div>
+                        <div class="card-body">
+                          <p><strong>完整域名:</strong> <%= subdomainStatus.domain %></p>
+                          <% if (subdomainStatus.verifiedAt) { %>
+                            <p><strong>验证时间:</strong> <%= new Date(subdomainStatus.verifiedAt).toLocaleString() %></p>
+                          <% } %>
+                          <% if (subdomainStatus.status === 'active') { %>
+                            <p><strong>SSL状态:</strong> 
+                              <span class="badge status-badge status-<%= subdomainStatus.sslStatus %>">
+                                <%= {
+                                  'pending': '配置中',
+                                  'active': '已激活',
+                                  'failed': '配置失败',
+                                  'inactive': '未配置'
+                                }[subdomainStatus.sslStatus] %>
+                              </span>
+                            </p>
+                            <a href="https://<%= subdomainStatus.domain %>" target="_blank" class="btn btn-success">访问博客</a>
+                          <% } else if (subdomainStatus.status === 'pending' || subdomainStatus.status === 'failed') { %>
+                            <form action="/admin/domain-settings/verify-domain" method="POST">
+                              <input type="hidden" name="type" value="subdomain">
+                              <button type="submit" class="btn btn-warning">验证域名</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <div class="alert alert-info">
+                        请设置子域名并保存。
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 自定义域名 -->
+              <div class="tab-pane fade" id="custom-domain" role="tabpanel" aria-labelledby="custom-domain-tab">
+                <div class="row">
+                  <div class="col-md-6">
+                    <form action="/admin/domain-settings/update-custom-domain" method="POST">
+                      <div class="mb-3">
+                        <label for="customDomain" class="form-label">自定义域名</label>
+                        <input type="text" class="form-control" id="customDomain" name="customDomain" placeholder="blog.yourwebsite.com" value="<%= user.customDomain || '' %>" required>
+                        <div class="form-text">请输入您拥有的完整域名，例如 blog.yourwebsite.com</div>
+                      </div>
+                      <button type="submit" class="btn btn-primary">保存</button>
+                    </form>
+                    
+                    <% if (dnsGuide && user.customDomain) { %>
+                      <div class="dns-guide mt-4">
+                        <h5>DNS 配置指南</h5>
+                        <p>请在您的域名提供商控制面板中添加以下 DNS 记录：</p>
+                        <table class="table table-bordered">
+                          <thead>
+                            <tr>
+                              <th>记录类型</th>
+                              <th>主机名</th>
+                              <th>指向值</th>
+                              <th>TTL</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><%= dnsGuide.recordType %></td>
+                              <td><%= dnsGuide.host %></td>
+                              <td><%= dnsGuide.value %></td>
+                              <td><%= dnsGuide.ttl %></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <h6>配置步骤：</h6>
+                        <ol>
+                          <% dnsGuide.instructions.forEach(instruction => { %>
+                            <li><%= instruction %></li>
+                          <% }); %>
+                        </ol>
+                      </div>
+                    <% } %>
+                  </div>
+                  <div class="col-md-6">
+                    <% if (customDomainStatus) { %>
+                      <div class="card">
+                        <div class="card-header">
+                          自定义域名状态
+                          <span class="badge status-badge status-<%= customDomainStatus.status %>">
+                            <%= {
+                              'pending': '验证中',
+                              'active': '已激活',
+                              'failed': '验证失败',
+                              'inactive': '未激活'
+                            }[customDomainStatus.status] %>
+                          </span>
+                        </div>
+                        <div class="card-body">
+                          <p><strong>域名:</strong> <%= customDomainStatus.domain %></p>
+                          <% if (customDomainStatus.verifiedAt) { %>
+                            <p><strong>验证时间:</strong> <%= new Date(customDomainStatus.verifiedAt).toLocaleString() %></p>
+                          <% } %>
+                          <% if (customDomainStatus.status === 'active') { %>
+                            <p><strong>SSL状态:</strong> 
+                              <span class="badge status-badge status-<%= customDomainStatus.sslStatus %>">
+                                <%= {
+                                  'pending': '配置中',
+                                  'active': '已激活',
+                                  'failed': '配置失败',
+                                  'inactive': '未配置'
+                                }[customDomainStatus.sslStatus] %>
+                              </span>
+                            </p>
+                            <a href="https://<%= customDomainStatus.domain %>" target="_blank" class="btn btn-success">访问博客</a>
+                          <% } else if (customDomainStatus.status === 'pending' || customDomainStatus.status === 'failed') { %>
+                            <form action="/admin/domain-settings/verify-domain" method="POST">
+                              <input type="hidden" name="type" value="custom">
+                              <button type="submit" class="btn btn-warning">验证域名</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <div class="alert alert-info">
+                        请设置自定义域名并保存。
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 博客设置 -->
+              <div class="tab-pane fade" id="blog-settings" role="tabpanel" aria-labelledby="blog-settings-tab">
+                <form action="/admin/domain-settings/update-blog-settings" method="POST">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label for="blogTitle" class="form-label">博客标题</label>
+                        <input type="text" class="form-control" id="blogTitle" name="blogTitle" value="<%= user.settings && user.settings.blog ? user.settings.blog.title : '我的SEO博客' %>" required>
+                      </div>
+                      <div class="mb-3">
+                        <label for="blogDescription" class="form-label">博客描述</label>
+                        <textarea class="form-control" id="blogDescription" name="blogDescription" rows="3" required><%= user.settings && user.settings.blog ? user.settings.blog.description : '自动生成的高质量SEO博客内容' %></textarea>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label for="primaryColor" class="form-label">主色调</label>
+                        <div class="input-group">
+                          <input type="color" class="form-control form-control-color" id="primaryColor" name="primaryColor" value="<%= user.settings && user.settings.blog ? user.settings.blog.primaryColor : '#3498db' %>">
+                          <input type="text" class="form-control" value="<%= user.settings && user.settings.blog ? user.settings.blog.primaryColor : '#3498db' %>" readonly>
+                          <div class="color-preview" id="primaryColorPreview"></div>
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <label for="secondaryColor" class="form-label">辅助色调</label>
+                        <div class="input-group">
+                          <input type="color" class="form-control form-control-color" id="secondaryColor" name="secondaryColor" value="<%= user.settings && user.settings.blog ? user.settings.blog.secondaryColor : '#2ecc71' %>">
+                          <input type="text" class="form-control" value="<%= user.settings && user.settings.blog ? user.settings.blog.secondaryColor : '#2ecc71' %>" readonly>
+                          <div class="color-preview" id="secondaryColorPreview"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary">保存博客设置</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <%- include('../partials/scripts') %>
+  <script>
+    // 初始化颜色预览
+    document.addEventListener('DOMContentLoaded', function() {
+      // 设置初始颜色
+      const primaryColor = document.getElementById('primaryColor').value;
+      const secondaryColor = document.getElementById('secondaryColor').value;
+      
+      document.getElementById('primaryColorPreview').style.backgroundColor = primaryColor;
+      document.getElementById('secondaryColorPreview').style.backgroundColor = secondaryColor;
+      
+      // 更新颜色预览
+      document.getElementById('primaryColor').addEventListener('input', function() {
+        this.nextElementSibling.value = this.value;
+        document.getElementById('primaryColorPreview').style.backgroundColor = this.value;
+      });
+      
+      document.getElementById('secondaryColor').addEventListener('input', function() {
+        this.nextElementSibling.value = this.value;
+        document.getElementById('secondaryColorPreview').style.backgroundColor = this.value;
+      });
+    });
+  </script>
+</body>
+</html> 

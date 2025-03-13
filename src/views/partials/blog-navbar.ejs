@@ -1,0 +1,66 @@
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/blog">
+      <% if (locals.tenantInfo && tenantInfo.logo) { %>
+        <img src="<%= tenantInfo.logo %>" alt="<%= tenantInfo.title %>" height="30" class="me-2">
+      <% } %>
+      <%= locals.tenantInfo ? tenantInfo.title : title %>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/blog">首页</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/blog/categories">分类</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/blog/about">关于</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav">
+        <% if (locals.tenantInfo && tenantInfo.userId && locals.user && locals.user._id && tenantInfo.userId.toString() !== locals.user._id.toString()) { %>
+          <li class="nav-item">
+            <span class="nav-link">
+              <i class="bi bi-person-badge"></i> <%= tenantInfo.displayName %> 的博客
+            </span>
+          </li>
+        <% } %>
+        <% if (locals.user) { %>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <% if (locals.user.profilePicture) { %>
+                <img src="<%= locals.user.profilePicture %>" alt="<%= locals.user.username %>" class="user-avatar">
+              <% } else { %>
+                <div class="user-avatar">
+                  <%= locals.user.username.charAt(0).toUpperCase() %>
+                </div>
+              <% } %>
+              <%= locals.user.displayName || locals.user.username %>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+              <li>
+                <div class="user-info">
+                  <p class="user-name"><%= locals.user.displayName || locals.user.username %></p>
+                  <p class="user-email"><%= locals.user.email %></p>
+                </div>
+              </li>
+              <li><a class="dropdown-item" href="/admin"><i class="bi bi-speedometer2"></i> 管理后台</a></li>
+              <li><a class="dropdown-item" href="/auth/profile"><i class="bi bi-person"></i> 个人资料</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
+            </ul>
+          </li>
+        <% } else { %>
+          <li class="nav-item">
+            <a class="nav-link" href="/auth/login"><i class="bi bi-box-arrow-in-right"></i> 登录</a>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+</nav> 

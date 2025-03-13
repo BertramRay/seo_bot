@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="<%= locals.language || 'zh-CN' %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= metaTitle %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta name="robots" content="index, follow">
+  <!-- 引入搜索引擎所需的结构化数据 -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "<%= locals.tenantInfo ? tenantInfo.title : title %>",
+      "description": "<%= locals.tenantInfo ? tenantInfo.description : description %>",
+      "url": "<%= canonicalUrl %>"
+    }
+  </script>
+  <style>
+    :root {
+      --primary-color: <%= locals.tenantInfo ? tenantInfo.primaryColor : '#3498db' %>;
+      --secondary-color: <%= locals.tenantInfo ? tenantInfo.secondaryColor : '#2ecc71' %>;
+    }
+    .navbar {
+      background-color: var(--primary-color);
+      padding: 0.5rem 1rem;
+    }
+    .navbar-brand {
+      color: white;
+      font-weight: bold;
+    }
+    .navbar-nav .nav-link {
+      color: rgba(255,255,255,0.8);
+    }
+    .navbar-nav .nav-link:hover {
+      color: white;
+    }
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: var(--secondary-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 10px;
+      font-size: 14px;
+      color: white;
+      overflow: hidden;
+    }
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .dropdown-menu {
+      min-width: 200px;
+      padding: 10px;
+    }
+    .user-info {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 10px;
+    }
+    .user-name {
+      font-weight: bold;
+      margin-bottom: 0;
+    }
+    .user-email {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      margin-bottom: 0;
+    }
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    .btn-primary:hover {
+      background-color: var(--primary-color);
+      filter: brightness(90%);
+      border-color: var(--primary-color);
+    }
+    .btn-outline-primary {
+      color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    .btn-outline-primary:hover {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    .text-primary {
+      color: var(--primary-color) !important;
+    }
+    .bg-primary {
+      background-color: var(--primary-color) !important;
+    }
+  </style>
+  <% if (locals.extraStyles) { %>
+    <%- extraStyles %>
+  <% } %>
+</head>
+<body> 
