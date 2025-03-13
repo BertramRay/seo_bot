@@ -39,19 +39,36 @@ exports.getBlogUrl = (path = '') => {
  * @param {string} options.title - 页面标题
  * @param {string} options.description - 页面描述
  * @param {string} options.path - URL路径
+ * @param {Array|string} options.keywords - 关键词数组或字符串
  * @returns {Object} SEO元信息
  */
 exports.getSeoMeta = (options = {}) => {
   const blogTitle = config.blog.title;
   const blogDescription = config.blog.description;
+  const defaultKeywords = config.blog.keywords || [];
   
   const title = options.title ? `${options.title} - ${blogTitle}` : blogTitle;
   const description = options.description || blogDescription;
   const canonicalUrl = exports.getBlogUrl(options.path || '');
   
+  // 处理关键词
+  let keywords = '';
+  if (options.keywords) {
+    // 如果提供了关键词，使用提供的关键词
+    keywords = Array.isArray(options.keywords) 
+      ? options.keywords.join(', ') 
+      : options.keywords;
+  } else if (defaultKeywords.length > 0) {
+    // 否则使用默认关键词
+    keywords = Array.isArray(defaultKeywords) 
+      ? defaultKeywords.join(', ') 
+      : defaultKeywords;
+  }
+  
   return {
     metaTitle: title,
     metaDescription: description,
+    keywords,
     canonicalUrl,
   };
 }; 

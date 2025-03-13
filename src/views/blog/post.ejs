@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= metaTitle %></title>
   <meta name="description" content="<%= metaDescription %>">
+  <% if (typeof keywords !== 'undefined' && keywords) { %>
   <meta name="keywords" content="<%= keywords %>">
+  <% } %>
   <link rel="canonical" href="<%= canonicalUrl %>">
   <link rel="stylesheet" href="/css/style.css">
   <!-- 添加Markdown样式 -->

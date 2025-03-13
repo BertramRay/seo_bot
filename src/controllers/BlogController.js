@@ -198,16 +198,19 @@ exports.getPost = asyncHandler(async (req, res) => {
   const relatedPosts = await postRepository.getRelatedPosts(post._id, post.categories);
   
   // 获取SEO元数据
-  const canonicalUrl = getBlogUrl(`/${post.slug}`);
+  const seoMeta = getSeoMeta({
+    title: post.title,
+    description: post.metaDescription || post.excerpt,
+    path: `/${post.slug}`,
+    keywords: post.keywords
+  });
   
   res.render('blog/post', {
     title: post.title,
     post,
     relatedPosts,
     isPreview,
-    metaTitle: post.metaTitle || post.title,
-    metaDescription: post.metaDescription || post.excerpt,
-    canonicalUrl,
+    ...seoMeta,
     ogImage: post.coverImage || null,
   });
 }); 
