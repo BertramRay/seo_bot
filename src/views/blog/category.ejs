@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="<%= locals.language || 'zh-CN' %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= metaTitle %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta name="robots" content="index, follow">
+</head>
+<body>
+  <header class="blog-header">
+    <div class="container">
+      <h1 class="blog-title"><a href="/blog"><%= title.split(' - ')[1] || title %></a></h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1><%= category %></h1>
+      <p class="text-muted">共找到 <%= pagination.total %> 篇相关文章</p>
+      <div class="category-navigation">
+        <a href="/blog/categories" class="back-link">
+          <i class="bi bi-arrow-left"></i> 返回所有分类
+        </a>
+      </div>
+    </div>
+
+    <div class="posts-list">
+      <% if (posts && posts.length > 0) { %>
+        <% posts.forEach(post => { %>
+          <article class="post-card">
+            <h2 class="post-title">
+              <a href="/blog/<%= post.slug %>"><%= post.title %></a>
+            </h2>
+            <div class="post-meta">
+              <span class="post-date"><%= new Date(post.publishedAt).toLocaleDateString('zh-CN') %></span>
+              <span class="post-reading-time"><%= post.readingTime || '5' %> 分钟阅读</span>
+            </div>
+            <% if (post.categories && post.categories.length > 0) { %>
+              <div class="post-categories">
+                <% post.categories.forEach(cat => { %>
+                  <a href="/blog/category/<%= cat %>" class="category-badge <%= cat === category ? 'active' : '' %>"><%= cat %></a>
+                <% }) %>
+              </div>
+            <% } %>
+            <div class="post-excerpt">
+              <p><%= post.excerpt %></p>
+            </div>
+            <a href="/blog/<%= post.slug %>" class="read-more">阅读全文 <i class="bi bi-arrow-right"></i></a>
+          </article>
+        <% }) %>
+      <% } else { %>
+        <div class="no-content-message">
+          <p>该分类下暂无文章</p>
+          <a href="/blog" class="btn btn-primary mt-3">返回首页</a>
+        </div>
+      <% } %>
+    </div>
+
+    <% if (pagination.totalPages > 1) { %>
+      <nav class="pagination">
+        <% if (pagination.hasPrevPage) { %>
+          <a href="/blog/category/<%= category %>?page=<%= pagination.page - 1 %>" class="pagination-prev">上一页</a>
+        <% } %>
+        
+        <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+          <% if (i === pagination.page) { %>
+            <span class="pagination-active"><%= i %></span>
+          <% } else { %>
+            <a href="/blog/category/<%= category %>?page=<%= i %>" class="pagination-link"><%= i %></a>
+          <% } %>
+        <% } %>
+        
+        <% if (pagination.hasNextPage) { %>
+          <a href="/blog/category/<%= category %>?page=<%= pagination.page + 1 %>" class="pagination-next">下一页</a>
+        <% } %>
+      </nav>
+    <% } %>
+  </main>
+
+  <footer class="blog-footer">
+    <div class="container">
+      <p>&copy; <%= new Date().getFullYear() %> <%= title.split(' - ')[1] || title %>. All rights reserved.</p>
+      <p>
+        <a href="/blog">返回首页</a> |
+        <a href="/blog/categories">分类</a> |
+        <a href="/blog/about">关于我们</a> |
+        <a href="/feed.xml">RSS订阅</a> |
+        <a href="/sitemap.xml">站点地图</a>
+      </p>
+    </div>
+  </footer>
+  
+  <style>
+    .page-header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    .category-navigation {
+      margin-top: 15px;
+    }
+    
+    .back-link {
+      display: inline-block;
+      color: #6c757d;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    
+    .back-link:hover {
+      color: #007bff;
+      text-decoration: underline;
+    }
+    
+    .category-badge.active {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .category-badge.active:hover {
+      background-color: #0056b3;
+    }
+    
+    .no-content-message {
+      text-align: center;
+      padding: 40px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      margin-bottom: 40px;
+    }
+  </style>
+</body>
+</html> 
