@@ -58,7 +58,40 @@ const setupContentGenerationJob = () => {
     async function() {
       try {
         logger.info('开始执行内容生成定时任务');
-        await generateAndPublishPosts(config.content.postsPerBatch);
+        // 查找合适的用户
+        const User = require('../models/User');
+        let user = null;
+        
+        // 1. 首先检查配置中是否指定了用户ID
+        if (config.content.userId) {
+          user = await User.findOne({ _id: config.content.userId, isActive: true });
+          if (user) {
+            logger.info(`使用配置中指定的用户 ${user.username} 执行内容生成`);
+          }
+        }
+        
+        // 2. 如果没有找到指定用户，尝试查找任何活跃用户
+        if (!user) {
+          user = await User.findOne({ isActive: true });
+          if (user) {
+            logger.info(`使用活跃用户 ${user.username} 执行内容生成`);
+          }
+        }
+        
+        // 3. 如果还是没找到用户，则使用管理员用户
+        if (!user) {
+          user = await User.findOne({ role: 'admin' });
+          if (user) {
+            logger.info(`使用管理员用户 ${user.username} 执行内容生成`);
+          }
+        }
+        
+        if (!user) {
+          logger.error('找不到合适的用户，无法执行内容生成定时任务');
+          return;
+        }
+        
+        await generateAndPublishPosts(config.content.postsPerBatch, user);
         logger.info('内容生成定时任务执行完成');
       } catch (error) {
         logger.error(`内容生成定时任务执行出错: ${error.message}`);
